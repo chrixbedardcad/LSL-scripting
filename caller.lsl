@@ -5,6 +5,12 @@
 integer CHANNEL = -987654;          // Channel used to communicate with rezzer.lsl
 string  CONFIG_NOTECARD = "rez.cfg"; // Name of the configuration notecard/file
 
+// llGetNotecardLineSync returns literal strings when encountering specific conditions.
+// Define them explicitly so the compiler recognizes the names.
+string  NOTE_EOF        = EOF;          // End-of-file marker
+string  NOTE_NOT_FOUND  = "NOT_FOUND"; // Notecard missing from inventory
+string  NOTE_NOT_READY  = "NOT_READY"; // Asset data not yet available
+
 list gEntries;          // Stores each configuration line as a JSON string
 integer gReady = FALSE; // TRUE when configuration is fully loaded
 string  gPayloadTemplate;
@@ -48,20 +54,20 @@ integer start_config_load()
     {
         string line = llGetNotecardLineSync(CONFIG_NOTECARD, index);
 
-        if (line == EOF)
+        if (line == NOTE_EOF)
         {
             gReady = TRUE;
             llOwnerSay("caller.lsl: Loaded " + (string)entry_count() + " configuration entries.");
             return TRUE;
         }
 
-        if (line == NOT_FOUND)
+        if (line == NOTE_NOT_FOUND)
         {
             llOwnerSay("caller.lsl: Unable to read configuration notecard '" + CONFIG_NOTECARD + "'.");
             return FALSE;
         }
 
-        if (line == NOT_READY)
+        if (line == NOTE_NOT_READY)
         {
             if (++retries > 50)
             {
