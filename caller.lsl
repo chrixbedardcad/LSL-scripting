@@ -88,10 +88,22 @@ integer send_cmd(integer channelId, string object_name, integer qty)
     return TRUE;
 }
 
+integer send_stop_command()
+{
+    string payload = llList2Json(JSON_OBJECT, [
+        "COMMAND", "stop"
+    ]);
+
+    llRegionSay(CHANNEL, payload);
+    return TRUE;
+}
+
 integer send_random_command()
 {
     integer count = entry_count();
     if (!gReady || count <= 0) return FALSE;
+
+    send_stop_command();
 
     integer index = (integer)llFrand((float)count);
     string jsonLine = llList2String(gEntries, index);

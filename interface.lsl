@@ -27,6 +27,7 @@ float   gATarget = 0.0;
 float   gALive   = 0.0;
 string  gMyName;
 integer gChannel = 0;
+integer gDieAfterFade = FALSE;
 
 // Quintic easing 0..1 -> 0..1
 float ease5(float t) { return t*t*t * (t*(6.0*t - 15.0) + 10.0); }
@@ -80,6 +81,11 @@ integer StartFade(integer dir) // 1=in, -1=out
     gDir  = dir;
     gProg = 0.0;
 
+    if (gDir == 1)
+    {
+        gDieAfterFade = FALSE;
+    }
+
     if (gDir == 1)      { gATarget = MIN_VIS; gALive = gATarget; }
     else /* gDir == -1 */{ gATarget = MAX_VIS; gALive = gATarget; }
 
@@ -120,6 +126,7 @@ integer process_payload(string message)
     }
     else if (llToLower(cmd) == "stop")
     {
+        gDieAfterFade = TRUE;
         FadeOut();
         return TRUE;
     }
@@ -199,6 +206,7 @@ default
 
         if (gProg >= 1.0)
         {
+            integer finishedDir = gDir;
             if (gDir == 1)
             {
                 gALive = MAX_VIS;
@@ -211,6 +219,11 @@ default
 
             gDir = 0;
             llSetTimerEvent(0.0);
+
+            if (finishedDir == -1 && gDieAfterFade)
+            {
+                llDie();
+            }
         }
     }
 }
