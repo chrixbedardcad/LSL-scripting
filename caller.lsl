@@ -76,18 +76,19 @@ integer start_config_load()
             }
 
             llSleep(0.1);
-            continue;
         }
-
-        retries = 0;
-
-        string trimmed = llStringTrim(line, STRING_TRIM);
-        if (trimmed != "")
+        else
         {
-            gEntries += [trimmed];
-        }
+            retries = 0;
 
-        ++index;
+            string trimmed = llStringTrim(line, STRING_TRIM);
+            if (trimmed != "")
+            {
+                gEntries += [trimmed];
+            }
+
+            ++index;
+        }
     }
 
     return FALSE; // Unreachable fallback to satisfy return requirement
