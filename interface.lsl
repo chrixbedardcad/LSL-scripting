@@ -199,7 +199,14 @@ default
 
         if (gProg >= 1.0)
         {
-            gALive = (gDir == 1) ? MAX_VIS : MIN_VIS;
+            if (gDir == 1)
+            {
+                gALive = MAX_VIS;
+            }
+            else
+            {
+                gALive = MIN_VIS;
+            }
             set_all_alpha(gALive);
 
             gDir = 0;
