@@ -9,6 +9,11 @@ list gEntries;          // Stores each configuration line as a JSON string
 integer gReady = FALSE; // TRUE when configuration is fully loaded
 integer gLine = 0;      // Current line index being read
 key     gQuery = NULL_KEY;
+string  gPayloadTemplate = llList2Json(JSON_OBJECT, [
+    "COMMAND", "OBJECT_NAME", "QTY"
+], [
+    "rez", "", "0"
+]);
 
 // --- Helpers ----------------------------------------------------------------
 
@@ -50,6 +55,16 @@ string parse_object_name(string json)
     return llJsonGetValue(json, ["Object_Name"]);
 }
 
+integer send_cmd(integer channelId, string object_name, integer qty)
+{
+    string payload = gPayloadTemplate;
+    payload = llJsonSetValue(payload, ["OBJECT_NAME"], object_name);
+    payload = llJsonSetValue(payload, ["QTY"], qty);
+
+    llRegionSay(channelId, payload);
+    return TRUE;
+}
+
 integer send_random_command()
 {
     integer count = entry_count();
@@ -72,14 +87,7 @@ integer send_random_command()
         qty = 1; // fallback to one rez if missing/invalid
     }
 
-    string payload = llList2Json(JSON_OBJECT, [
-        "COMMAND", "OBJECT_NAME", "QTY"
-    ], [
-        "rez", objName, (string)qty
-    ]);
-
-    llRegionSay(CHANNEL, payload);
-    return TRUE;
+    return send_cmd(CHANNEL, objName, qty);
 }
 
 // --- Events -----------------------------------------------------------------
