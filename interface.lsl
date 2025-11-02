@@ -5,6 +5,7 @@
 // ---- Config ----
 integer FILTER_BY_NAME = TRUE;    // require NAME to match llGetObjectName()
 integer EXCLUDE_ROOT   = TRUE;    // TRUE = skip link 1 (root) when fading
+integer ENABLE_DEBUG   = TRUE;    // when TRUE log state changes with llOwnerSay
 
 // Fade tuning
 float STEP_TIME     = 0.02;
@@ -74,6 +75,13 @@ integer set_all_alpha(float a)
 }
 
 // --- Fade API ---
+integer Debug(string message)
+{
+    if (!ENABLE_DEBUG) return FALSE;
+    llOwnerSay("[interface] " + message);
+    return TRUE;
+}
+
 integer StartFade(integer dir) // 1=in, -1=out
 {
     if (dir != 1 && dir != -1) return FALSE;
@@ -83,7 +91,12 @@ integer StartFade(integer dir) // 1=in, -1=out
 
     if (gDir == 1)
     {
+        Debug("FadeIn requested");
         gDieAfterFade = FALSE;
+    }
+    else
+    {
+        Debug("FadeOut requested (die after: " + (string)gDieAfterFade + ")");
     }
 
     if (gDir == 1)      { gATarget = MIN_VIS; gALive = gATarget; }
@@ -112,25 +125,33 @@ integer process_payload(string message)
         string targetName = llJsonGetValue(message, ["NAME"]);
         if (targetName != JSON_INVALID && targetName != gMyName)
         {
+            Debug("Ignoring command for different NAME '" + targetName + "'");
             return FALSE;
         }
     }
 
     string cmd = llJsonGetValue(message, ["COMMAND"]);
-    if (cmd == JSON_INVALID) return FALSE;
+    if (cmd == JSON_INVALID)
+    {
+        Debug("Message missing COMMAND: " + message);
+        return FALSE;
+    }
 
     if (llToLower(cmd) == "start")
     {
+        Debug("Processing START command");
         FadeIn();
         return TRUE;
     }
     else if (llToLower(cmd) == "stop")
     {
+        Debug("Processing STOP command");
         gDieAfterFade = TRUE;
         FadeOut();
         return TRUE;
     }
 
+    Debug("Unknown COMMAND '" + cmd + "'");
     return FALSE;
 }
 
@@ -149,6 +170,7 @@ default
 
         // Fade in immediately when rezzed
         FadeIn();
+        Debug("State entry complete (channel " + (string)gChannel + ")");
     }
 
     on_rez(integer param)
@@ -156,6 +178,7 @@ default
         gChannel = param;
         gListen = listen_for_channel(gChannel);
         FadeIn();
+        Debug("on_rez: channel=" + (string)gChannel);
     }
 
     changed(integer change)
@@ -219,9 +242,11 @@ default
 
             gDir = 0;
             llSetTimerEvent(0.0);
+            Debug("Fade " + (finishedDir == 1 ? "in" : "out") + " complete (dieAfter=" + (string)gDieAfterFade + ")");
 
             if (finishedDir == -1 && gDieAfterFade)
             {
+                Debug("Calling llDie() after fade out");
                 llDie();
             }
         }
