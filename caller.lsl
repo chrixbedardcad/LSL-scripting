@@ -10,10 +10,14 @@ string  CONFIG_NOTECARD = "rez.cfg"; // Name of the configuration notecard/file
 string  NOTE_EOF        = EOF;          // End-of-file marker
 string  NOTE_NOT_FOUND  = "NOT_FOUND"; // Notecard missing from inventory
 string  NOTE_NOT_READY  = "NOT_READY"; // Asset data not yet available
+string  NOTE_NAK        = NAK;           // Dataserver indicates to retry asynchronously
 
 list gEntries;          // Stores each configuration line as a JSON string
 integer gReady = FALSE; // TRUE when configuration is fully loaded
 string  gPayloadTemplate;
+integer gLoadLine;      // Current line number requested from the notecard
+key     gLoadRequest;   // Handle for the outstanding notecard request
+integer gLoading;       // TRUE while a notecard request is pending
 
 string build_payload_template()
 {
@@ -35,6 +39,9 @@ integer start_config_load()
 {
     gEntries = [];
     gReady = FALSE;
+    gLoading = FALSE;
+    gLoadLine = 0;
+    gLoadRequest = NULL_KEY;
 
     if (gPayloadTemplate == "")
     {
@@ -46,52 +53,17 @@ integer start_config_load()
         llOwnerSay("caller.lsl: Unable to find configuration notecard '" + CONFIG_NOTECARD + "'.");
         return FALSE;
     }
+    gLoadLine = 0;
+    gLoadRequest = llGetNotecardLine(CONFIG_NOTECARD, gLoadLine);
 
-    integer index = 0;
-    integer retries;
-
-    while (TRUE)
+    if (gLoadRequest == NULL_KEY)
     {
-        string line = llGetNotecardLineSync(CONFIG_NOTECARD, index);
-
-        if (line == NOTE_EOF)
-        {
-            gReady = TRUE;
-            llOwnerSay("caller.lsl: Loaded " + (string)entry_count() + " configuration entries.");
-            return TRUE;
-        }
-
-        if (line == NOTE_NOT_FOUND)
-        {
-            llOwnerSay("caller.lsl: Unable to read configuration notecard '" + CONFIG_NOTECARD + "'.");
-            return FALSE;
-        }
-
-        if (line == NOTE_NOT_READY)
-        {
-            if (++retries > 50)
-            {
-                llOwnerSay("caller.lsl: Timed out while reading configuration notecard '" + CONFIG_NOTECARD + "'.");
-                return FALSE;
-            }
-
-            llSleep(0.1);
-        }
-        else
-        {
-            retries = 0;
-
-            string trimmed = llStringTrim(line, STRING_TRIM);
-            if (trimmed != "")
-            {
-                gEntries += [trimmed];
-            }
-
-            ++index;
-        }
+        llOwnerSay("caller.lsl: Failed to request configuration notecard '" + CONFIG_NOTECARD + "'.");
+        return FALSE;
     }
 
-    return FALSE; // Unreachable fallback to satisfy return requirement
+    gLoading = TRUE;
+    return TRUE;
 }
 
 integer parse_quantity(string json)
@@ -175,5 +147,50 @@ default
         {
             start_config_load();
         }
+    }
+
+    dataserver(key request_id, string data)
+    {
+        if (!gLoading || request_id != gLoadRequest)
+        {
+            return;
+        }
+
+        string message = data;
+
+        while (message != NOTE_EOF && message != NOTE_NAK && message != NOTE_NOT_FOUND && message != NOTE_NOT_READY)
+        {
+            string trimmed = llStringTrim(message, STRING_TRIM);
+            if (trimmed != "")
+            {
+                gEntries += [trimmed];
+            }
+
+            ++gLoadLine;
+            message = llGetNotecardLineSync(CONFIG_NOTECARD, gLoadLine);
+        }
+
+        if (message == NOTE_NAK || message == NOTE_NOT_READY)
+        {
+            gLoadRequest = llGetNotecardLine(CONFIG_NOTECARD, gLoadLine);
+            return;
+        }
+
+        gLoading = FALSE;
+
+        if (message == NOTE_EOF)
+        {
+            gReady = TRUE;
+            llOwnerSay("caller.lsl: Loaded " + (string)entry_count() + " configuration entries.");
+            return;
+        }
+
+        if (message == NOTE_NOT_FOUND)
+        {
+            llOwnerSay("caller.lsl: Unable to read configuration notecard '" + CONFIG_NOTECARD + "'.");
+            return;
+        }
+
+        llOwnerSay("caller.lsl: Unexpected response while reading configuration notecard.");
     }
 }
