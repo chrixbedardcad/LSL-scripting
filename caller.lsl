@@ -110,7 +110,7 @@ integer send_cmd(integer channelId, string object_name, integer qty)
 {
     string payload = gPayloadTemplate;
     payload = llJsonSetValue(payload, ["OBJECT_NAME"], object_name);
-    payload = llJsonSetValue(payload, ["QTY"], qty);
+    payload = llJsonSetValue(payload, ["QTY"], (string) qty);
 
     llRegionSay(channelId, payload);
     return TRUE;
