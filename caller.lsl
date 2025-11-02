@@ -7,16 +7,14 @@ string  CONFIG_NOTECARD = "rez.cfg"; // Name of the configuration notecard/file
 
 list gEntries;          // Stores each configuration line as a JSON string
 integer gReady = FALSE; // TRUE when configuration is fully loaded
-integer gLine = 0;      // Current line index being read
-key     gQuery = NULL_KEY;
 string  gPayloadTemplate;
 
 string build_payload_template()
 {
     return llList2Json(JSON_OBJECT, [
-        "COMMAND", "OBJECT_NAME", "QTY"
-    ], [
-        "rez", "", "0"
+        "COMMAND",    "rez",
+        "OBJECT_NAME", "",
+        "QTY",         "0"
     ]);
 }
 
@@ -27,16 +25,9 @@ integer entry_count()
     return llGetListLength(gEntries);
 }
 
-integer load_next_line()
-{
-    gQuery = llGetNotecardLine(CONFIG_NOTECARD, gLine);
-    return gQuery != NULL_KEY;
-}
-
 integer start_config_load()
 {
     gEntries = [];
-    gLine = 0;
     gReady = FALSE;
 
     if (gPayloadTemplate == "")
@@ -50,7 +41,48 @@ integer start_config_load()
         return FALSE;
     }
 
-    return load_next_line();
+    integer index = 0;
+    integer retries;
+
+    while (TRUE)
+    {
+        string line = llGetNotecardLineSync(CONFIG_NOTECARD, index);
+
+        if (line == EOF)
+        {
+            gReady = TRUE;
+            llOwnerSay("caller.lsl: Loaded " + (string)entry_count() + " configuration entries.");
+            return TRUE;
+        }
+
+        if (line == NOT_FOUND)
+        {
+            llOwnerSay("caller.lsl: Unable to read configuration notecard '" + CONFIG_NOTECARD + "'.");
+            return FALSE;
+        }
+
+        if (line == NOT_READY)
+        {
+            if (++retries > 50)
+            {
+                llOwnerSay("caller.lsl: Timed out while reading configuration notecard '" + CONFIG_NOTECARD + "'.");
+                return FALSE;
+            }
+
+            llSleep(0.1);
+            continue;
+        }
+
+        retries = 0;
+
+        string trimmed = llStringTrim(line, STRING_TRIM);
+        if (trimmed != "")
+        {
+            gEntries += [trimmed];
+        }
+
+        ++index;
+    }
 }
 
 integer parse_quantity(string json)
@@ -126,27 +158,6 @@ default
         {
             llOwnerSay("caller.lsl: Failed to send rez request.");
         }
-    }
-
-    dataserver(key query_id, string data)
-    {
-        if (query_id != gQuery) return;
-
-        if (data == EOF)
-        {
-            gReady = TRUE;
-            llOwnerSay("caller.lsl: Loaded " + (string)entry_count() + " configuration entries.");
-            return;
-        }
-
-        string trimmed = llStringTrim(data, STRING_TRIM);
-        if (trimmed != "")
-        {
-            gEntries += [trimmed];
-        }
-
-        ++gLine;
-        load_next_line();
     }
 
     changed(integer change)
