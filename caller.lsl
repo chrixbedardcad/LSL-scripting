@@ -9,11 +9,16 @@ list gEntries;          // Stores each configuration line as a JSON string
 integer gReady = FALSE; // TRUE when configuration is fully loaded
 integer gLine = 0;      // Current line index being read
 key     gQuery = NULL_KEY;
-string  gPayloadTemplate = llList2Json(JSON_OBJECT, [
-    "COMMAND", "OBJECT_NAME", "QTY"
-], [
-    "rez", "", "0"
-]);
+string  gPayloadTemplate;
+
+string build_payload_template()
+{
+    return llList2Json(JSON_OBJECT, [
+        "COMMAND", "OBJECT_NAME", "QTY"
+    ], [
+        "rez", "", "0"
+    ]);
+}
 
 // --- Helpers ----------------------------------------------------------------
 
@@ -33,6 +38,11 @@ integer start_config_load()
     gEntries = [];
     gLine = 0;
     gReady = FALSE;
+
+    if (gPayloadTemplate == "")
+    {
+        gPayloadTemplate = build_payload_template();
+    }
 
     if (llGetInventoryType(CONFIG_NOTECARD) != INVENTORY_NOTECARD)
     {
