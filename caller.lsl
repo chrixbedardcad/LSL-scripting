@@ -1,0 +1,141 @@
+// caller.lsl -- Reads rez.cfg and sends rez commands to rezzer via llRegionSay
+// Assumes rez.cfg is a notecard or script file in the object's inventory with
+// one JSON object per line describing the object name and quantity.
+
+integer CHANNEL = -987654;          // Channel used to communicate with rezzer.lsl
+string  CONFIG_NOTECARD = "rez.cfg"; // Name of the configuration notecard/file
+
+list gEntries;          // Stores each configuration line as a JSON string
+integer gReady = FALSE; // TRUE when configuration is fully loaded
+integer gLine = 0;      // Current line index being read
+key     gQuery = NULL_KEY;
+
+// --- Helpers ----------------------------------------------------------------
+
+integer entry_count()
+{
+    return llGetListLength(gEntries);
+}
+
+integer load_next_line()
+{
+    gQuery = llGetNotecardLine(CONFIG_NOTECARD, gLine);
+    return gQuery != NULL_KEY;
+}
+
+integer start_config_load()
+{
+    gEntries = [];
+    gLine = 0;
+    gReady = FALSE;
+
+    if (llGetInventoryType(CONFIG_NOTECARD) != INVENTORY_NOTECARD)
+    {
+        llOwnerSay("caller.lsl: Unable to find configuration notecard '" + CONFIG_NOTECARD + "'.");
+        return FALSE;
+    }
+
+    return load_next_line();
+}
+
+integer parse_quantity(string json)
+{
+    string qtyStr = llJsonGetValue(json, ["QTY"]);
+    if (qtyStr == JSON_INVALID) return 0;
+    return (integer)qtyStr;
+}
+
+string parse_object_name(string json)
+{
+    return llJsonGetValue(json, ["Object_Name"]);
+}
+
+integer send_random_command()
+{
+    integer count = entry_count();
+    if (!gReady || count <= 0) return FALSE;
+
+    integer index = (integer)llFrand((float)count);
+    string jsonLine = llList2String(gEntries, index);
+
+    string objName = parse_object_name(jsonLine);
+    integer qty    = parse_quantity(jsonLine);
+
+    if (objName == JSON_INVALID || objName == "")
+    {
+        llOwnerSay("caller.lsl: Invalid Object_Name in configuration entry #" + (string)(index + 1));
+        return FALSE;
+    }
+
+    if (qty <= 0)
+    {
+        qty = 1; // fallback to one rez if missing/invalid
+    }
+
+    string payload = llList2Json(JSON_OBJECT, [
+        "COMMAND", "OBJECT_NAME", "QTY"
+    ], [
+        "rez", objName, (string)qty
+    ]);
+
+    llRegionSay(CHANNEL, payload);
+    return TRUE;
+}
+
+// --- Events -----------------------------------------------------------------
+
+default
+{
+    state_entry()
+    {
+        start_config_load();
+    }
+
+    on_rez(integer param)
+    {
+        start_config_load();
+    }
+
+    touch_start(integer total_number)
+    {
+        if (!gReady)
+        {
+            llOwnerSay("caller.lsl: Configuration not ready yet.");
+            return;
+        }
+
+        if (!send_random_command())
+        {
+            llOwnerSay("caller.lsl: Failed to send rez request.");
+        }
+    }
+
+    dataserver(key query_id, string data)
+    {
+        if (query_id != gQuery) return;
+
+        if (data == EOF)
+        {
+            gReady = TRUE;
+            llOwnerSay("caller.lsl: Loaded " + (string)entry_count() + " configuration entries.");
+            return;
+        }
+
+        string trimmed = llStringTrim(data, STRING_TRIM);
+        if (trimmed != "")
+        {
+            gEntries += [trimmed];
+        }
+
+        ++gLine;
+        load_next_line();
+    }
+
+    changed(integer change)
+    {
+        if (change & (CHANGED_INVENTORY | CHANGED_OWNER))
+        {
+            start_config_load();
+        }
+    }
+}
