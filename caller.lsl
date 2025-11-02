@@ -83,6 +83,8 @@ integer start_config_load()
 
         ++index;
     }
+
+    return FALSE; // Unreachable fallback to satisfy return requirement
 }
 
 integer parse_quantity(string json)
