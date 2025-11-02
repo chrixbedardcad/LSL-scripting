@@ -75,11 +75,10 @@ integer set_all_alpha(float a)
 }
 
 // --- Fade API ---
-integer Debug(string message)
+void Debug(string message)
 {
-    if (!ENABLE_DEBUG) return FALSE;
+    if (!ENABLE_DEBUG) return;
     llOwnerSay("[interface] " + message);
-    return TRUE;
 }
 
 integer StartFade(integer dir) // 1=in, -1=out
