@@ -170,7 +170,15 @@ default
     {
         if (gDir != 1 && gDir != -1) { llSetTimerEvent(0.0); return; }
 
-        float T = (gDir == 1) ? FADE_IN_TIME : FADE_OUT_TIME;
+        float T;
+        if (gDir == 1)
+        {
+            T = FADE_IN_TIME;
+        }
+        else
+        {
+            T = FADE_OUT_TIME;
+        }
 
         gProg += STEP_TIME / T;
         if (gProg > 1.0) gProg = 1.0;
