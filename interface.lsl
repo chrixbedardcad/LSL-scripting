@@ -36,21 +36,9 @@ float ease5(float t) { return t*t*t * (t*(6.0*t - 15.0) + 10.0); }
 // --- Helpers ---
 integer set_all_mode_blend_once()
 {
-    integer n = llGetNumberOfPrims();
-    integer startLink; if (EXCLUDE_ROOT) startLink = 2; else startLink = 1;
-
-    integer L;
-    for (L = startLink; L <= n; ++L)
-    {
-        integer faces = llGetLinkNumberOfSides(L);
-        integer f;
-        for (f = 0; f < faces; ++f)
-        {
-            llSetLinkGLTFOverrides(L, f, [
-                OVERRIDE_GLTF_BASE_ALPHA_MODE, MODE_BLEND
-            ]);
-        }
-    }
+    llSetLinkGLTFOverrides(LINK_SET, ALL_SIDES, [
+        OVERRIDE_GLTF_BASE_ALPHA_MODE, MODE_BLEND
+    ]);
     return TRUE;
 }
 
