@@ -18,7 +18,8 @@ float SMOOTH_FACTOR = 0.25;
 float WRITE_EPS     = 0.0005;
 
 // PBR alpha mode
-integer MODE_BLEND = PRIM_GLTF_ALPHA_MODE_BLEND;
+integer MODE_BLEND  = PRIM_GLTF_ALPHA_MODE_BLEND;
+integer MODE_OPAQUE = PRIM_GLTF_ALPHA_MODE_OPAQUE;
 
 // ---- State ----
 integer gListen = 0;
@@ -34,11 +35,23 @@ integer gDieAfterFade = FALSE;
 float ease5(float t) { return t*t*t * (t*(6.0*t - 15.0) + 10.0); }
 
 // --- Helpers ---
-integer set_all_mode_blend_once()
+integer set_all_mode(integer mode)
 {
-    llSetLinkGLTFOverrides(LINK_SET, ALL_SIDES, [
-        OVERRIDE_GLTF_BASE_ALPHA_MODE, MODE_BLEND
-    ]);
+    integer n = llGetNumberOfPrims();
+    integer startLink; if (EXCLUDE_ROOT) startLink = 2; else startLink = 1;
+
+    integer L;
+    for (L = startLink; L <= n; ++L)
+    {
+        integer faces = llGetLinkNumberOfSides(L);
+        integer f;
+        for (f = 0; f < faces; ++f)
+        {
+            llSetLinkGLTFOverrides(L, f, [
+                OVERRIDE_GLTF_BASE_ALPHA_MODE, mode
+            ]);
+        }
+    }
     return TRUE;
 }
 
@@ -77,6 +90,8 @@ integer StartFade(integer dir) // 1=in, -1=out
 
     gDir  = dir;
     gProg = 0.0;
+
+    set_all_mode(MODE_BLEND);
 
     if (gDir == 1)
     {
@@ -149,7 +164,7 @@ default
     state_entry()
     {
         gMyName = llGetObjectName();
-        set_all_mode_blend_once();
+        set_all_mode(MODE_BLEND);
 
         gDir = 0; gProg = 0.0;
         llSetTimerEvent(0.0);
@@ -222,6 +237,7 @@ default
             if (gDir == 1)
             {
                 gALive = MAX_VIS;
+                set_all_mode(MODE_OPAQUE);
             }
             else
             {
