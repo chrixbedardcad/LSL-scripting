@@ -243,7 +243,17 @@ default
 
             gDir = 0;
             llSetTimerEvent(0.0);
-            Debug("Fade " + (finishedDir == 1 ? "in" : "out") + " complete (dieAfter=" + (string)gDieAfterFade + ")");
+            string fadeDir;
+            if (finishedDir == 1)
+            {
+                fadeDir = "in";
+            }
+            else
+            {
+                fadeDir = "out";
+            }
+
+            Debug("Fade " + fadeDir + " complete (dieAfter=" + (string)gDieAfterFade + ")");
 
             if (finishedDir == -1 && gDieAfterFade)
             {
