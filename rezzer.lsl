@@ -31,7 +31,11 @@ integer rez_object(string objectName, integer count)
     for (i = 0; i < count; ++i)
     {
         vector rezPos = basePos + (OFFSET_STEP * (float)i);
-        llRezObject(objectName, rezPos, ZERO_VECTOR, rezRot, 0);
+        // Pass the shared channel as the start parameter so the rezzed
+        // interface scripts know which channel to listen on for start/stop
+        // commands. Without this the interface never receives the "stop"
+        // message and therefore never triggers FadeOut/llDie().
+        llRezObject(objectName, rezPos, ZERO_VECTOR, rezRot, CHANNEL);
     }
 
     return TRUE;
