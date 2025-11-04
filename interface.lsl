@@ -23,7 +23,6 @@ integer MODE_OPAQUE = PRIM_GLTF_ALPHA_MODE_OPAQUE;
 
 // Texture configuration
 string TEXTURE_CONFIG = "textures.json";
-string TEXTURE_BLANK  = "b7ebe3f4-6a5e-9128-7540-403549c69bc6";
 
 // Notecard helpers
 string NOTE_EOF        = EOF;
@@ -134,12 +133,17 @@ integer apply_blank_textures()
         integer link = llList2Integer(gTextureTargets, i + CFG_LINK);
         integer face = llList2Integer(gTextureTargets, i + CFG_FACE);
 
-        llSetLinkGLTFOverrides(link, face, [
-            OVERRIDE_GLTF_BASE_COLOR_TEXTURE, TEXTURE_BLANK,
-            OVERRIDE_GLTF_BASE_ALPHA_MODE, MODE_BLEND
-        ]);
-
         llSetLinkPrimitiveParamsFast(link, [
+            PRIM_GLTF_BASE_COLOR, face,
+            TEXTURE_BLANK,
+            <1.0, 1.0, 1.0>,
+            <0.0, 0.0, 0.0>,
+            0.0,
+            <1.0, 1.0, 1.0>,
+            1.0,
+            MODE_BLEND,
+            0.0,
+            FALSE,
             PRIM_GLOW, face, 0.0
         ]);
     }
@@ -163,13 +167,20 @@ integer apply_final_textures()
         integer mode = llList2Integer(gTextureTargets, i + CFG_MODE);
         string  tex  = llList2String(gTextureTargets, i + CFG_TEXTURE);
         float   glow = llList2Float(gTextureTargets, i + CFG_GLOW);
-
-        llSetLinkGLTFOverrides(link, face, [
-            OVERRIDE_GLTF_BASE_COLOR_TEXTURE, tex,
-            OVERRIDE_GLTF_BASE_ALPHA_MODE, mode
-        ]);
+        float   entryAlpha = llList2Float(gTextureTargets, i + CFG_ALPHA);
+        float   textureRotation = llList2Float(gTextureTargets, i + CFG_ROTATION);
 
         llSetLinkPrimitiveParamsFast(link, [
+            PRIM_GLTF_BASE_COLOR, face,
+            tex,
+            <1.0, 1.0, 1.0>,
+            <0.0, 0.0, 0.0>,
+            textureRotation,
+            <1.0, 1.0, 1.0>,
+            entryAlpha,
+            mode,
+            0.0,
+            FALSE,
             PRIM_GLOW, face, glow
         ]);
     }
@@ -227,14 +238,14 @@ integer parse_texture_entry(string jsonLine)
         speed = (float)speedStr;
     }
 
-    float rotation = 0.0;
+    float textureRotation = 0.0;
     string rotStr = llJsonGetValue(jsonLine, ["Rotation"]);
     if (rotStr != JSON_INVALID && rotStr != "")
     {
-        rotation = (float)rotStr;
+        textureRotation = (float)rotStr;
     }
 
-    gTextureTargets += [link, face, mode, textureId, alpha, glow, speed, rotation];
+    gTextureTargets += [link, face, mode, textureId, alpha, glow, speed, textureRotation];
     return TRUE;
 }
 
@@ -328,7 +339,11 @@ integer set_all_alpha(float a)
             if (idx >= 0)
             {
                 float entryAlpha = llList2Float(gTextureTargets, idx + CFG_ALPHA);
-                float scale = (MAX_VIS > 0.0) ? (a / MAX_VIS) : 0.0;
+                float scale = 0.0;
+                if (MAX_VIS > 0.0)
+                {
+                    scale = a / MAX_VIS;
+                }
                 if (scale < 0.0) scale = 0.0;
                 if (scale > 1.0) scale = 1.0;
                 faceAlpha = entryAlpha * scale;
