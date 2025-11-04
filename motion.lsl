@@ -18,7 +18,7 @@ string PATH_RUN     = "path.run";
 string PATH_FADEOUT = "path.fadeOUT";
 
 float  TIMER_MARGIN = 0.2; // Extra seconds added to timers to ensure completion.
-integer DATA_MASK   = KFM_TRANSLATION | KFM_ROTATION;
+integer DATA_MASK   = KFM_TRANSLATION + KFM_ROTATION;
 
 // --- Loader state ------------------------------------------------------------
 integer PATH_ID_FADEIN  = 0;
