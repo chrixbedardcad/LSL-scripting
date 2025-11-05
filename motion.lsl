@@ -257,7 +257,12 @@ integer stop_motion()
     {
         llOwnerSay("motion.lsl: stop_motion()");
     }
-    llSetKeyframedMotion([], [KFM_CMD_STOP]);
+    // KFM option lists expect key/value pairs. Passing only KFM_CMD_STOP caused
+    // the simulator to interpret the options list as malformed, spamming syntax
+    // errors like "Incorrect number of elements in param list" and "expected
+    // rotation in keyframe list" every time we attempted to stop or restart the
+    // motion. Use the proper key to issue the stop command.
+    llSetKeyframedMotion([], [KFM_COMMAND, KFM_CMD_STOP]);
 
     return TRUE;
 }
