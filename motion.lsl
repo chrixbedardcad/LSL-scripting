@@ -216,7 +216,7 @@ integer begin_path_load(integer phase)
     return request_notecard_line();
 }
 
-void reset_paths()
+integer reset_paths()
 {
     gKeyframesFadeIn  = [];
     gKeyframesRun     = [];
@@ -225,22 +225,28 @@ void reset_paths()
     gDurationFadeIn  = 0.0;
     gDurationRun     = 0.0;
     gDurationFadeOut = 0.0;
+
+    return TRUE;
 }
 
-void stop_motion()
+integer stop_motion()
 {
     llSetKeyframedMotion([], [KFM_CMD_STOP]);
+
+    return TRUE;
 }
 
-void schedule_timer(float seconds)
+integer schedule_timer(float seconds)
 {
     gStageTimer = seconds;
     if (seconds <= 0.0)
     {
         llSetTimerEvent(0.0);
-        return;
+        return TRUE;
     }
     llSetTimerEvent(seconds + TIMER_MARGIN);
+
+    return TRUE;
 }
 
 integer play_keyframes(list frames, integer mode)
@@ -300,31 +306,34 @@ integer start_stage(integer stage)
     return FALSE;
 }
 
-void attempt_start_sequence()
+integer attempt_start_sequence()
 {
     if (!gStartQueued)
     {
-        return;
+        return FALSE;
     }
 
     if (!gPathsReady || gStage != STAGE_IDLE)
     {
-        return;
+        return FALSE;
     }
 
     if (start_stage(STAGE_FADEIN))
     {
         gStartQueued = FALSE;
+        return TRUE;
     }
+
+    return FALSE;
 }
 
-void handle_stop_command()
+integer handle_stop_command()
 {
     gStopRequested = TRUE;
 
     if (!gPathsReady)
     {
-        return;
+        return FALSE;
     }
 
     if (gStage == STAGE_RUN)
@@ -339,9 +348,11 @@ void handle_stop_command()
     {
         start_stage(STAGE_FADEOUT);
     }
+
+    return TRUE;
 }
 
-void reset_and_load()
+integer reset_and_load()
 {
     stop_motion();
     schedule_timer(0.0);
@@ -358,6 +369,8 @@ void reset_and_load()
     {
         gLoadError = TRUE;
     }
+
+    return TRUE;
 }
 
 integer handle_message(string message)
