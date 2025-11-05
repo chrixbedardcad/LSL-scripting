@@ -40,6 +40,8 @@ integer gPathsReady = FALSE;
 integer gLoadError = FALSE;
 integer gStartQueued = TRUE; // Auto-start after loading by default.
 
+integer gDebugEnabled = TRUE; // Enable verbose debugging output.
+
 // Notecard constants
 string NOTE_EOF       = EOF;
 string NOTE_NOT_FOUND = "NOT_FOUND";
@@ -147,6 +149,14 @@ list parse_keyframe_line(string raw)
     vector   position = <px, py, pz>;
     rotation rotationQ = <qx, qy, qz, qw>;
 
+    if (gDebugEnabled)
+    {
+        llOwnerSay("motion.lsl: parsed frame "
+            + "pos=" + (string)position
+            + " rot=" + (string)rotationQ
+            + " dur=" + (string)duration);
+    }
+
     return [position, rotationQ, duration];
 }
 
@@ -177,6 +187,18 @@ integer append_keyframe(integer phase, list frame)
     else
     {
         return FALSE;
+    }
+
+    if (gDebugEnabled)
+    {
+        integer framesIn = llGetListLength(gKeyframesFadeIn) / 3;
+        integer framesRun = llGetListLength(gKeyframesRun) / 3;
+        integer framesOut = llGetListLength(gKeyframesFadeOut) / 3;
+        llOwnerSay("motion.lsl: appended frame to phase " + (string)phase
+            + " (counts fadeIn/run/fadeOut="
+            + (string)framesIn + "/"
+            + (string)framesRun + "/"
+            + (string)framesOut + ")");
     }
 
     return TRUE;
@@ -231,6 +253,10 @@ integer reset_paths()
 
 integer stop_motion()
 {
+    if (gDebugEnabled)
+    {
+        llOwnerSay("motion.lsl: stop_motion()");
+    }
     llSetKeyframedMotion([], [KFM_CMD_STOP]);
 
     return TRUE;
@@ -253,10 +279,27 @@ integer play_keyframes(list frames, integer mode)
 {
     if (llGetListLength(frames) < 3)
     {
+        if (gDebugEnabled)
+        {
+            llOwnerSay("motion.lsl: play_keyframes aborting, list too short (" + (string)llGetListLength(frames) + ")");
+        }
         return FALSE;
     }
 
     stop_motion();
+    integer len = llGetListLength(frames);
+    integer remainder = len % 3;
+    if (gDebugEnabled)
+    {
+        llOwnerSay("motion.lsl: play_keyframes length=" + (string)len
+            + " remainder=" + (string)remainder
+            + " mode=" + (string)mode);
+        if (remainder != 0)
+        {
+            llOwnerSay("motion.lsl: WARNING frame list not multiple of 3 -> " + llList2CSV(frames));
+        }
+    }
+
     llSetKeyframedMotion(frames, [
         KFM_MODE, mode,
         KFM_DATA, KFM_TRANSLATION | KFM_ROTATION
@@ -268,6 +311,10 @@ integer start_stage(integer stage)
 {
     if (!gPathsReady)
     {
+        if (gDebugEnabled)
+        {
+            llOwnerSay("motion.lsl: start_stage(" + (string)stage + ") aborted, paths not ready");
+        }
         return FALSE;
     }
 
@@ -279,6 +326,10 @@ integer start_stage(integer stage)
         }
         gStage = STAGE_FADEIN;
         gStopRequested = FALSE;
+        if (gDebugEnabled)
+        {
+            llOwnerSay("motion.lsl: starting STAGE_FADEIN");
+        }
         schedule_timer(path_duration(PATH_ID_FADEIN));
         return TRUE;
     }
@@ -289,6 +340,10 @@ integer start_stage(integer stage)
             return FALSE;
         }
         gStage = STAGE_RUN;
+        if (gDebugEnabled)
+        {
+            llOwnerSay("motion.lsl: starting STAGE_RUN");
+        }
         schedule_timer(0.0);
         return TRUE;
     }
@@ -299,6 +354,10 @@ integer start_stage(integer stage)
             return FALSE;
         }
         gStage = STAGE_FADEOUT;
+        if (gDebugEnabled)
+        {
+            llOwnerSay("motion.lsl: starting STAGE_FADEOUT");
+        }
         schedule_timer(path_duration(PATH_ID_FADEOUT));
         return TRUE;
     }
