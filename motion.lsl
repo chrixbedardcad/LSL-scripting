@@ -18,7 +18,6 @@ string PATH_RUN     = "path.run";
 string PATH_FADEOUT = "path.fadeOUT";
 
 float  TIMER_MARGIN = 0.2; // Extra seconds added to timers to ensure completion.
-integer DATA_MASK   = KFM_TRANSLATION + KFM_ROTATION;
 
 // --- Loader state ------------------------------------------------------------
 integer PATH_ID_FADEIN  = 0;
@@ -254,7 +253,7 @@ integer play_keyframes(list frames, integer mode)
     stop_motion();
     llSetKeyframedMotion(frames, [
         KFM_MODE, mode,
-        KFM_DATA, DATA_MASK
+        KFM_DATA, KFM_TRANSLATION | KFM_ROTATION
     ]);
     return TRUE;
 }
