@@ -275,9 +275,35 @@ integer schedule_timer(float seconds)
     return TRUE;
 }
 
+list build_kfm_list(list frames)
+{
+    list kfm = [];
+    integer len = llGetListLength(frames);
+    integer idx = 0;
+
+    while (idx + 2 < len)
+    {
+        vector   pos = llList2Vector(frames, idx);
+        rotation rot = llList2Rot(frames, idx + 1);
+        float    dur = llList2Float(frames, idx + 2);
+
+        kfm += [pos, dur, rot, dur];
+        idx += 3;
+    }
+
+    if (idx < len && gDebugEnabled)
+    {
+        llOwnerSay("motion.lsl: WARNING leftover data when building keyframes -> "
+            + llList2CSV(llList2List(frames, idx, -1)));
+    }
+
+    return kfm;
+}
+
 integer play_keyframes(list frames, integer mode)
 {
-    if (llGetListLength(frames) < 3)
+    integer frameLen = llGetListLength(frames);
+    if (frameLen < 3)
     {
         if (gDebugEnabled)
         {
@@ -287,20 +313,31 @@ integer play_keyframes(list frames, integer mode)
     }
 
     stop_motion();
-    integer len = llGetListLength(frames);
-    integer remainder = len % 3;
+    integer remainder = frameLen % 3;
+    list kfmFrames = build_kfm_list(frames);
+    integer kfmLen = llGetListLength(kfmFrames);
     if (gDebugEnabled)
     {
-        llOwnerSay("motion.lsl: play_keyframes length=" + (string)len
+        llOwnerSay("motion.lsl: play_keyframes length=" + (string)frameLen
             + " remainder=" + (string)remainder
-            + " mode=" + (string)mode);
+            + " mode=" + (string)mode
+            + " kfmLength=" + (string)kfmLen);
         if (remainder != 0)
         {
             llOwnerSay("motion.lsl: WARNING frame list not multiple of 3 -> " + llList2CSV(frames));
         }
     }
 
-    llSetKeyframedMotion(frames, [
+    if (kfmLen < 2)
+    {
+        if (gDebugEnabled)
+        {
+            llOwnerSay("motion.lsl: play_keyframes aborting, converted list too short (" + (string)kfmLen + ")");
+        }
+        return FALSE;
+    }
+
+    llSetKeyframedMotion(kfmFrames, [
         KFM_MODE, mode,
         KFM_DATA, KFM_TRANSLATION | KFM_ROTATION
     ]);
