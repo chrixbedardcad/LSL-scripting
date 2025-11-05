@@ -287,7 +287,12 @@ list build_kfm_list(list frames)
         rotation rot = llList2Rot(frames, idx + 1);
         float    dur = llList2Float(frames, idx + 2);
 
-        kfm += [pos, dur, rot, dur];
+        // Each keyframe must supply translation, rotation, then duration when
+        // both KFM_TRANSLATION and KFM_ROTATION are requested. Previously the
+        // list repeated the duration which produced malformed frames like
+        // [pos, dur, rot, dur], causing runtime syntax errors. The corrected
+        // order is [pos, rot, dur].
+        kfm += [pos, rot, dur];
         idx += 3;
     }
 
@@ -328,7 +333,7 @@ integer play_keyframes(list frames, integer mode)
         }
     }
 
-    if (kfmLen < 2)
+    if (kfmLen < 3)
     {
         if (gDebugEnabled)
         {
