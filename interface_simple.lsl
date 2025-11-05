@@ -29,6 +29,20 @@ integer accepts_name(string target)
     return llToLower(target) == llToLower(gMyName);
 }
 
+integer gForwardingStop = FALSE;
+
+integer forward_stop_command()
+{
+    if (gForwardingStop)
+    {
+        return TRUE;
+    }
+
+    gForwardingStop = TRUE;
+    llMessageLinked(LINK_SET, 0, "stop", NULL_KEY);
+    return TRUE;
+}
+
 integer handle_command(string command)
 {
     if (command == "start")
@@ -38,8 +52,7 @@ integer handle_command(string command)
 
     if (command == "stop")
     {
-        llDie();
-        return TRUE;
+        return forward_stop_command();
     }
 
     return FALSE;
@@ -106,6 +119,12 @@ default
 
     link_message(integer sender, integer num, string str, key id)
     {
+        if (gForwardingStop && num == 0 && llToLower(str) == "stop")
+        {
+            gForwardingStop = FALSE;
+            return;
+        }
+
         if (num == 0)
         {
             process_message(str);

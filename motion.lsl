@@ -57,6 +57,7 @@ integer STAGE_FADEOUT = 3;
 integer gStage = STAGE_IDLE;
 float   gStageTimer = 0.0;
 integer gStopRequested = FALSE;
+integer gFadeOutActive = FALSE;
 
 // --- Helpers -----------------------------------------------------------------
 string path_name(integer phase)
@@ -373,6 +374,7 @@ integer start_stage(integer stage)
         }
         gStage = STAGE_FADEIN;
         gStopRequested = FALSE;
+        gFadeOutActive = FALSE;
         if (gDebugEnabled)
         {
             llOwnerSay("motion.lsl: starting STAGE_FADEIN");
@@ -387,6 +389,7 @@ integer start_stage(integer stage)
             return FALSE;
         }
         gStage = STAGE_RUN;
+        gFadeOutActive = FALSE;
         if (gDebugEnabled)
         {
             llOwnerSay("motion.lsl: starting STAGE_RUN");
@@ -401,6 +404,7 @@ integer start_stage(integer stage)
             return FALSE;
         }
         gStage = STAGE_FADEOUT;
+        gFadeOutActive = TRUE;
         if (gDebugEnabled)
         {
             llOwnerSay("motion.lsl: starting STAGE_FADEOUT");
@@ -436,6 +440,7 @@ integer attempt_start_sequence()
 integer handle_stop_command()
 {
     gStopRequested = TRUE;
+    gStartQueued = FALSE;
 
     if (!gPathsReady)
     {
@@ -464,6 +469,7 @@ integer reset_and_load()
     schedule_timer(0.0);
     gStage = STAGE_IDLE;
     gStopRequested = FALSE;
+    gFadeOutActive = FALSE;
     gPathsReady = FALSE;
     gLoadError = FALSE;
     gLoadQuery = NULL_KEY;
@@ -647,7 +653,12 @@ default
         }
         else if (gStage == STAGE_FADEOUT)
         {
-            llDie();
+            if (gFadeOutActive)
+            {
+                gFadeOutActive = FALSE;
+                stop_motion();
+                llDie();
+            }
         }
     }
 }
