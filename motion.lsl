@@ -503,6 +503,17 @@ default
 {
     state_entry()
     {
+        // Ensure the linkset uses a convex hull root with non-physical children.
+        // Large linksets often exceed the per-frame complexity budget for
+        // keyframed motion unless we explicitly disable physics on the child
+        // prims. Doing it here keeps the configuration consistent across
+        // rez/rest events.
+        llSetLinkPrimitiveParamsFast(LINK_ROOT, [
+            PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_CONVEX,
+            PRIM_LINK_TARGET, LINK_ALL_CHILDREN,
+            PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE
+        ]);
+
         reset_and_load();
     }
 
@@ -543,11 +554,25 @@ default
         {
             if (gLoadPhase == PATH_ID_FADEIN)
             {
+                if (gDebugEnabled)
+                {
+                    integer frames = llGetListLength(gKeyframesFadeIn) / 3;
+                    llOwnerSay("motion.lsl: completed load of " + PATH_FADEIN
+                        + " (frames=" + (string)frames
+                        + ", duration=" + (string)gDurationFadeIn + ")");
+                }
                 begin_path_load(PATH_ID_RUN);
                 return;
             }
             else if (gLoadPhase == PATH_ID_RUN)
             {
+                if (gDebugEnabled)
+                {
+                    integer frames = llGetListLength(gKeyframesRun) / 3;
+                    llOwnerSay("motion.lsl: completed load of " + PATH_RUN
+                        + " (frames=" + (string)frames
+                        + ", duration=" + (string)gDurationRun + ")");
+                }
                 begin_path_load(PATH_ID_FADEOUT);
                 return;
             }
@@ -555,6 +580,25 @@ default
             {
                 gPathsReady = !gLoadError;
                 gLoadQuery = NULL_KEY;
+                if (gDebugEnabled)
+                {
+                    integer frames = llGetListLength(gKeyframesFadeOut) / 3;
+                    llOwnerSay("motion.lsl: completed load of " + PATH_FADEOUT
+                        + " (frames=" + (string)frames
+                        + ", duration=" + (string)gDurationFadeOut + ")");
+
+                    if (gPathsReady)
+                    {
+                        llOwnerSay("motion.lsl: all paths ready (fadeIn/run/fadeOut="
+                            + (string)(llGetListLength(gKeyframesFadeIn) / 3) + "/"
+                            + (string)(llGetListLength(gKeyframesRun) / 3) + "/"
+                            + (string)(llGetListLength(gKeyframesFadeOut) / 3) + ")");
+                    }
+                    else
+                    {
+                        llOwnerSay("motion.lsl: path loading failed; keyframed motion disabled.");
+                    }
+                }
                 attempt_start_sequence();
                 return;
             }
