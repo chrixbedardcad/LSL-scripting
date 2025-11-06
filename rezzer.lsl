@@ -28,7 +28,16 @@ string ensure_vector_format(string raw)
 
 string build_move_rez_ack(integer seq, string objectName, integer success)
 {
-    string status = success ? "ok" : "fail";
+    string status;
+
+    if (success)
+    {
+        status = "ok";
+    }
+    else
+    {
+        status = "fail";
+    }
 
     return llList2Json(JSON_OBJECT,
         [
