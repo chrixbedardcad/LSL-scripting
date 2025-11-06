@@ -284,6 +284,10 @@ integer start_random_command()
         qty = 1; // fallback to one rez if missing/invalid
     }
 
+    // Ensure any previously rezzed objects are instructed to clean up before starting
+    // a new sequence run.
+    send_stop_command();
+
     gSequenceActive = TRUE;
     gSeqObjectName = objName;
     gSeqQty = qty;
