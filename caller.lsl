@@ -73,21 +73,23 @@ vector rotation_at(integer idx)
     return llList2Vector(gPositions, (idx * 2) + 1);
 }
 
-void record_home_position()
+integer record_home_position()
 {
     gHomeBasePos = llGetPos();
     gHomePosRecorded = TRUE;
+    return TRUE;
 }
 
-void return_rezzer_home()
+integer return_rezzer_home()
 {
     if (!gHomePosRecorded)
     {
-        return;
+        return FALSE;
     }
 
     vector targetPos = gHomeBasePos + <0.0, 0.0, 1.0>;
     llSetRegionPos(targetPos);
+    return TRUE;
 }
 
 string ensure_vector_format(string raw)
