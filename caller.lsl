@@ -15,6 +15,7 @@ string  NOTE_NAK        = NAK;           // Dataserver indicates to retry asynch
 
 list gEntries;           // Stores each configuration line as a JSON string
 list gPositions;         // Stores position/rotation pairs (vector, vector)
+list gAvailablePositionIndices; // Tracks remaining indices for randomized selection
 integer gEntriesReady;   // TRUE when rez.cfg is loaded
 integer gPositionsReady; // TRUE when pos.json is loaded
 integer gReady = FALSE;  // TRUE when configuration is fully loaded
@@ -40,6 +41,7 @@ integer gHomePosRecorded;   // TRUE when gHomeBasePos holds a valid value
 integer gTimerEnabled;      // TRUE when the automatic rez timer is active
 
 float   TIMER_INTERVAL = 30.0; // Seconds between automatic rez attempts
+float   REZ_DELAY      = 0.4;  // Delay between rez attempts for organic dispersion
 
 integer LOAD_PHASE_NONE = 0;
 integer LOAD_PHASE_REZ  = 1;
@@ -159,6 +161,51 @@ integer store_position_entry(string jsonLine)
     return TRUE;
 }
 
+list build_position_pool()
+{
+    list pool = [];
+    integer total = position_count();
+
+    integer i;
+    for (i = 0; i < total; ++i)
+    {
+        pool += [i];
+    }
+
+    return pool;
+}
+
+integer take_random_position_index()
+{
+    integer poolCount = llGetListLength(gAvailablePositionIndices);
+
+    if (poolCount <= 0)
+    {
+        gAvailablePositionIndices = build_position_pool();
+        poolCount = llGetListLength(gAvailablePositionIndices);
+    }
+
+    if (poolCount <= 0)
+    {
+        return -1;
+    }
+
+    integer selected;
+    integer attempts = 0;
+    integer poolIndex;
+
+    do
+    {
+        poolIndex = (integer)llFrand((float)poolCount);
+        selected = llList2Integer(gAvailablePositionIndices, poolIndex);
+        ++attempts;
+    }
+    while (poolCount > 1 && selected == gNextPositionIndex && attempts < 6);
+
+    gAvailablePositionIndices = llDeleteSubList(gAvailablePositionIndices, poolIndex, poolIndex);
+    return selected;
+}
+
 integer begin_notecard_load(string notecard, integer phase)
 {
     gCurrentNotecard = notecard;
@@ -205,6 +252,7 @@ integer start_config_load()
     gAwaitingAck = FALSE;
     gActiveSequenceId = -1;
     gNextPositionIndex = -1;
+    gAvailablePositionIndices = [];
 
     if (gPayloadTemplate == "")
     {
@@ -323,21 +371,13 @@ integer dispatch_next_rez()
         return FALSE;
     }
 
-    integer index;
+    integer index = take_random_position_index();
 
-    if (totalPositions <= 1)
+    if (index < 0)
     {
-        index = 0;
-    }
-    else
-    {
-        integer attempts = 0;
-        do
-        {
-            index = (integer)llFrand((float)totalPositions);
-            attempts++;
-        }
-        while (index == gNextPositionIndex && attempts < 5);
+        llOwnerSay("caller.lsl: Unable to select a rez position.");
+        gSequenceActive = FALSE;
+        return FALSE;
     }
 
     vector targetPos = position_at(index);
@@ -353,6 +393,11 @@ integer dispatch_next_rez()
             "POS",         (string)targetPos,
             "ROT",         (string)targetRot
         ]);
+
+    if (REZ_DELAY > 0.0)
+    {
+        llSleep(REZ_DELAY);
+    }
 
     llRegionSay(CHANNEL, payload);
     gAwaitingAck = TRUE;
@@ -400,6 +445,7 @@ integer start_random_command()
     gSeqCompleted = 0;
     gAwaitingAck = FALSE;
     gActiveSequenceId = ++gSequenceIdCounter;
+    gAvailablePositionIndices = build_position_pool();
 
     if (gActiveSequenceId <= 0)
     {
