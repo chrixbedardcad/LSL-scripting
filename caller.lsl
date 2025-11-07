@@ -35,6 +35,8 @@ integer gSeqQty;            // Total quantity to rez in the active sequence
 integer gSeqCompleted;      // Number of items already acknowledged as rezzed
 integer gAwaitingAck;       // TRUE while waiting for rezzer acknowledgement
 integer gNextPositionIndex; // Next index to use from gPositions
+vector  gHomeBasePos;       // Recorded base position for the rezzer
+integer gHomePosRecorded;   // TRUE when gHomeBasePos holds a valid value
 
 integer LOAD_PHASE_NONE = 0;
 integer LOAD_PHASE_REZ  = 1;
@@ -69,6 +71,23 @@ vector position_at(integer idx)
 vector rotation_at(integer idx)
 {
     return llList2Vector(gPositions, (idx * 2) + 1);
+}
+
+void record_home_position()
+{
+    gHomeBasePos = llGetPos();
+    gHomePosRecorded = TRUE;
+}
+
+void return_rezzer_home()
+{
+    if (!gHomePosRecorded)
+    {
+        return;
+    }
+
+    vector targetPos = gHomeBasePos + <0.0, 0.0, 1.0>;
+    llSetRegionPos(targetPos);
 }
 
 string ensure_vector_format(string raw)
@@ -142,6 +161,11 @@ integer begin_notecard_load(string notecard, integer phase)
 
 integer start_config_load()
 {
+    if (!gHomePosRecorded)
+    {
+        record_home_position();
+    }
+
     gEntries = [];
     gPositions = [];
     gEntriesReady = FALSE;
@@ -221,6 +245,7 @@ integer dispatch_next_rez()
         llOwnerSay("caller.lsl: Completed rezzing " + (string)gSeqQty + " of '" + gSeqObjectName + "'.");
         gSequenceActive = FALSE;
         gActiveSequenceId = -1;
+        return_rezzer_home();
         return TRUE;
     }
 
@@ -317,6 +342,8 @@ default
 {
     state_entry()
     {
+        record_home_position();
+
         if (gListenerHandle)
         {
             llListenRemove(gListenerHandle);
@@ -328,6 +355,8 @@ default
 
     on_rez(integer param)
     {
+        record_home_position();
+
         if (gListenerHandle)
         {
             llListenRemove(gListenerHandle);
@@ -403,6 +432,7 @@ default
             gSequenceActive = FALSE;
             gActiveSequenceId = -1;
             llOwnerSay("caller.lsl: Rezzer reported failure for '" + gSeqObjectName + "'.");
+            return_rezzer_home();
             return;
         }
 
