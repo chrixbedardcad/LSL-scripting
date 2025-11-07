@@ -37,6 +37,9 @@ integer gAwaitingAck;       // TRUE while waiting for rezzer acknowledgement
 integer gNextPositionIndex; // Next index to use from gPositions
 vector  gHomeBasePos;       // Recorded base position for the rezzer
 integer gHomePosRecorded;   // TRUE when gHomeBasePos holds a valid value
+integer gTimerEnabled;      // TRUE when the automatic rez timer is active
+
+float   TIMER_INTERVAL = 30.0; // Seconds between automatic rez attempts
 
 integer LOAD_PHASE_NONE = 0;
 integer LOAD_PHASE_REZ  = 1;
@@ -183,6 +186,11 @@ integer start_config_load()
         record_home_position();
     }
 
+    gTimerEnabled = FALSE;
+    llSetTimerEvent(0.0);
+    send_stop_command();
+    return_rezzer_home();
+
     gEntries = [];
     gPositions = [];
     gEntriesReady = FALSE;
@@ -247,6 +255,46 @@ integer send_stop_command()
     ]);
 
     llRegionSay(CHANNEL, payload);
+    return TRUE;
+}
+
+integer toggle_rez_timer()
+{
+    if (!gReady && !gTimerEnabled)
+    {
+        llOwnerSay("caller.lsl: Configuration not ready; cannot enable timer yet.");
+        return FALSE;
+    }
+
+    gTimerEnabled = !gTimerEnabled;
+
+    if (gTimerEnabled)
+    {
+        llSetTimerEvent(TIMER_INTERVAL);
+        llOwnerSay("caller.lsl: Automatic rez timer enabled.");
+
+        if (!gSequenceActive && !gAwaitingAck)
+        {
+            if (!start_random_command())
+            {
+                llOwnerSay("caller.lsl: Unable to start rez sequence immediately; will retry on timer.");
+            }
+        }
+    }
+    else
+    {
+        llSetTimerEvent(0.0);
+        send_stop_command();
+        gSequenceActive = FALSE;
+        gAwaitingAck = FALSE;
+        gActiveSequenceId = -1;
+        gSeqObjectName = "";
+        gSeqQty = 0;
+        gSeqCompleted = 0;
+        return_rezzer_home();
+        llOwnerSay("caller.lsl: Automatic rez timer disabled and rezzer reset.");
+    }
+
     return TRUE;
 }
 
@@ -391,10 +439,7 @@ default
             return;
         }
 
-        if (!start_random_command())
-        {
-            llOwnerSay("caller.lsl: Failed to send rez request.");
-        }
+        toggle_rez_timer();
     }
 
     changed(integer change)
@@ -402,6 +447,33 @@ default
         if (change & (CHANGED_INVENTORY | CHANGED_OWNER))
         {
             start_config_load();
+        }
+    }
+
+    timer()
+    {
+        if (!gTimerEnabled)
+        {
+            llSetTimerEvent(0.0);
+            return;
+        }
+
+        if (!gReady)
+        {
+            llOwnerSay("caller.lsl: Configuration lost; disabling timer.");
+            gTimerEnabled = FALSE;
+            llSetTimerEvent(0.0);
+            return;
+        }
+
+        if (gSequenceActive || gAwaitingAck)
+        {
+            return;
+        }
+
+        if (!start_random_command())
+        {
+            llOwnerSay("caller.lsl: Timer failed to start rez sequence; will retry.");
         }
     }
 
