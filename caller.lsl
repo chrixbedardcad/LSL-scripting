@@ -4,7 +4,7 @@
 
 integer CHANNEL = -987654;           // Channel used to communicate with rezzer.lsl
 string  CONFIG_NOTECARD = "rez.cfg"; // Name of the configuration notecard/file
-string  POS_NOTECARD    = "pos.json"; // Name of the position configuration file
+string  POS_NOTECARD    = "pos.cfg"; // Name of the position configuration file
 
 // llGetNotecardLineSync returns literal strings when encountering specific conditions.
 // Define them explicitly so the compiler recognizes the names.
@@ -16,7 +16,7 @@ string  NOTE_NAK        = NAK;           // Dataserver indicates to retry asynch
 list gEntries;           // Stores each configuration line as a JSON string
 list gPositions;         // Stores position/rotation pairs (vector, vector)
 integer gEntriesReady;   // TRUE when rez.cfg is loaded
-integer gPositionsReady; // TRUE when pos.json is loaded
+integer gPositionsReady; // TRUE when pos.cfg is loaded
 integer gReady = FALSE;  // TRUE when configuration is fully loaded
 string  gPayloadTemplate;
 integer gLoadLine;       // Current line number requested from the notecard
