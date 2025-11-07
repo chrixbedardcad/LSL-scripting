@@ -117,6 +117,35 @@ integer process_payload(string message)
 
     string lowerCommand = llToLower(command);
 
+    if (lowerCommand == "return_home")
+    {
+        string posStr = llJsonGetValue(message, ["POS"]);
+
+        if (posStr == JSON_INVALID || posStr == "")
+        {
+            llOwnerSay("rezzer.lsl: Missing POS for return_home: " + message);
+            return FALSE;
+        }
+
+        string posFormatted = ensure_vector_format(posStr);
+
+        if (posFormatted == "")
+        {
+            llOwnerSay("rezzer.lsl: Invalid POS for return_home: " + message);
+            return FALSE;
+        }
+
+        vector targetPos = (vector)posFormatted;
+
+        if (!llSetRegionPos(targetPos))
+        {
+            llOwnerSay("rezzer.lsl: Unable to return to home position " + (string)targetPos + ".");
+            return FALSE;
+        }
+
+        return TRUE;
+    }
+
     if (lowerCommand == "move_rez")
     {
         string objectName = llJsonGetValue(message, ["OBJECT_NAME"]);

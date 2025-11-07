@@ -82,13 +82,28 @@ integer record_home_position()
 
 integer return_rezzer_home()
 {
-    if (!gHomePosRecorded)
+    vector basePos;
+
+    if (gHomePosRecorded)
     {
-        return FALSE;
+        basePos = gHomeBasePos;
+    }
+    else
+    {
+        basePos = llGetPos();
+        gHomeBasePos = basePos;
+        gHomePosRecorded = TRUE;
     }
 
-    vector targetPos = gHomeBasePos + <0.0, 0.0, 1.0>;
-    llSetRegionPos(targetPos);
+    vector targetPos = basePos + <0.0, 0.0, 1.0>;
+
+    string payload = llList2Json(JSON_OBJECT,
+        [
+            "COMMAND", "return_home",
+            "POS",     (string)targetPos
+        ]);
+
+    llRegionSay(CHANNEL, payload);
     return TRUE;
 }
 
