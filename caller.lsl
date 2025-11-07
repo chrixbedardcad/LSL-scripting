@@ -4,7 +4,7 @@
 
 integer CHANNEL = -987654;           // Channel used to communicate with rezzer.lsl
 string  CONFIG_NOTECARD = "rez.cfg"; // Name of the configuration notecard/file
-string  POS_NOTECARD    = "pos.cfg"; // Name of the position configuration file
+string  POS_NOTECARD    = "pos.json"; // Name of the position configuration file
 
 // llGetNotecardLineSync returns literal strings when encountering specific conditions.
 // Define them explicitly so the compiler recognizes the names.
@@ -16,7 +16,7 @@ string  NOTE_NAK        = NAK;           // Dataserver indicates to retry asynch
 list gEntries;           // Stores each configuration line as a JSON string
 list gPositions;         // Stores position/rotation pairs (vector, vector)
 integer gEntriesReady;   // TRUE when rez.cfg is loaded
-integer gPositionsReady; // TRUE when pos.cfg is loaded
+integer gPositionsReady; // TRUE when pos.json is loaded
 integer gReady = FALSE;  // TRUE when configuration is fully loaded
 string  gPayloadTemplate;
 integer gLoadLine;       // Current line number requested from the notecard
@@ -34,7 +34,7 @@ string  gSeqObjectName;     // Object being rezzed in the active sequence
 integer gSeqQty;            // Total quantity to rez in the active sequence
 integer gSeqCompleted;      // Number of items already acknowledged as rezzed
 integer gAwaitingAck;       // TRUE while waiting for rezzer acknowledgement
-integer gNextPositionIndex; // Next index to use from gPositions
+integer gNextPositionIndex = -1; // Last index selected from gPositions
 vector  gHomeBasePos;       // Recorded base position for the rezzer
 integer gHomePosRecorded;   // TRUE when gHomeBasePos holds a valid value
 integer gTimerEnabled;      // TRUE when the automatic rez timer is active
@@ -204,7 +204,7 @@ integer start_config_load()
     gSequenceActive = FALSE;
     gAwaitingAck = FALSE;
     gActiveSequenceId = -1;
-    gNextPositionIndex = 0;
+    gNextPositionIndex = -1;
 
     if (gPayloadTemplate == "")
     {
@@ -323,11 +323,27 @@ integer dispatch_next_rez()
         return FALSE;
     }
 
-    integer index = gNextPositionIndex % totalPositions;
+    integer index;
+
+    if (totalPositions <= 1)
+    {
+        index = 0;
+    }
+    else
+    {
+        integer attempts = 0;
+        do
+        {
+            index = (integer)llFrand((float)totalPositions);
+            attempts++;
+        }
+        while (index == gNextPositionIndex && attempts < 5);
+    }
+
     vector targetPos = position_at(index);
     vector targetRot = rotation_at(index);
 
-    gNextPositionIndex = (index + 1) % totalPositions;
+    gNextPositionIndex = index;
 
     string payload = llList2Json(JSON_OBJECT,
         [
