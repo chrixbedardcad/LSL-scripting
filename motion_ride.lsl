@@ -7,6 +7,7 @@ string file_name;
 integer file_line_number;
 key file_request;
 key gCurrentAvatar = NULL_KEY;
+integer gHasCameraPermission = FALSE;
 float gTotalPathTime = 0.0;
 integer gHasStartData = FALSE;
 float PATH_RESET_BUFFER = 0.25; // Extra delay before restarting the path
@@ -130,6 +131,11 @@ default {
             ];
 
             llSetCameraParams(camera_params);
+            gHasCameraPermission = TRUE;
+        }
+        else
+        {
+            gHasCameraPermission = FALSE;
         }
     }
 
@@ -147,6 +153,11 @@ default {
             {
                 if (avatar != NULL_KEY)
                 {
+                    if (gHasCameraPermission)
+                    {
+                        llClearCameraParams();
+                        gHasCameraPermission = FALSE;
+                    }
                     gCurrentAvatar = avatar;
                     llRequestPermissions(gCurrentAvatar, PERMISSION_CONTROL_CAMERA);
                     llSetText("", ZERO_VECTOR, 0.0);
@@ -155,7 +166,11 @@ default {
                 {
                     gCurrentAvatar = NULL_KEY;
                     llSetText("Fly Duo", <1,1,1>, 1);
-                    llClearCameraParams();
+                    if (gHasCameraPermission)
+                    {
+                        llClearCameraParams();
+                        gHasCameraPermission = FALSE;
+                    }
                 }
             }
         }
