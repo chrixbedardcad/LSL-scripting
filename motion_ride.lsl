@@ -64,14 +64,14 @@ RequestCameraPermissions(key avatar)
 
     gCurrentAvatar = avatar;
 
-    if ((llGetPermissionsKey() == avatar) && (llGetPermissions() & PERMISSION_CONTROL_CAMERA))
+    integer hasPermission = (llGetPermissionsKey() == avatar) && (llGetPermissions() & PERMISSION_CONTROL_CAMERA);
+    if (hasPermission)
     {
         ApplyCameraSettings();
     }
-    else
-    {
-        llRequestPermissions(avatar, PERMISSION_CONTROL_CAMERA);
-    }
+
+    // Always request camera permissions when a sit is detected to ensure control is granted.
+    llRequestPermissions(avatar, PERMISSION_CONTROL_CAMERA);
 }
 
 vector parseStartPos(string line)
