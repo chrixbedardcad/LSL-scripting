@@ -22,16 +22,26 @@ ApplyCameraSettings()
 
     if ((llGetPermissionsKey() == gCurrentAvatar) && (llGetPermissions() & PERMISSION_CONTROL_CAMERA))
     {
+        // Reset the camera before applying a fresh set of parameters so it can
+        // smoothly follow the avatar throughout the ride.
+        llClearCameraParams();
+
         list camera_params = [
             CAMERA_ACTIVE, TRUE,
-            CAMERA_BEHINDNESS_ANGLE, PI,
-            CAMERA_BEHINDNESS_LAG, 0.1,
-            CAMERA_DISTANCE, 3.0,
+            CAMERA_BEHINDNESS_ANGLE, 30.0,
+            CAMERA_BEHINDNESS_LAG, 0.0,
+            CAMERA_DISTANCE, 10.0,
+            // Allow the camera to move dynamically with the rider instead of
+            // locking focus/position. This mirrors the reference "lookAtMe"
+            // configuration for vehicle-follow cameras.
             CAMERA_POSITION_LOCKED, FALSE,
-            CAMERA_POSITION_LAG, 0.1,
+            CAMERA_POSITION_LAG, 0.0,
             CAMERA_FOCUS_LOCKED, FALSE,
-            CAMERA_FOCUS_LAG, 0.1,
-            CAMERA_FOCUS_OFFSET, <0.0, 0.0, 1.0>
+            CAMERA_FOCUS_LAG, 0.05,
+            CAMERA_FOCUS_THRESHOLD, 0.0,
+            CAMERA_POSITION_THRESHOLD, 0.0,
+            CAMERA_PITCH, 10.0,
+            CAMERA_FOCUS_OFFSET, <2.0, 0.0, 0.0>
         ];
 
         llSetCameraParams(camera_params);
