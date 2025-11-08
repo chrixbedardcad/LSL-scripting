@@ -27,7 +27,10 @@ ApplyCameraSettings()
             CAMERA_BEHINDNESS_ANGLE, PI,
             CAMERA_BEHINDNESS_LAG, 0.1,
             CAMERA_DISTANCE, 3.0,
-            CAMERA_FOCUS_LAG, 0.0,
+            CAMERA_POSITION_LOCKED, FALSE,
+            CAMERA_POSITION_LAG, 0.1,
+            CAMERA_FOCUS_LOCKED, FALSE,
+            CAMERA_FOCUS_LAG, 0.1,
             CAMERA_FOCUS_OFFSET, <0.0, 0.0, 1.0>
         ];
 
