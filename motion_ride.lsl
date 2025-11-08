@@ -1,15 +1,12 @@
 // Global variables
 integer CHANNEL_ID = -777;
-integer CHANNEL_REZZER = -339189999;
 vector START_POS;
 rotation START_ROT;
 list gKeyframeList = [];
 string file_name;
 integer file_line_number;
 key file_request;
-key UUID_AVATAR_0 = NULL_KEY;
-key UUID_AVATAR_1 = NULL_KEY;
-integer FLAG_SIT = FALSE;
+key gCurrentAvatar = NULL_KEY;
 float gTotalPathTime = 0.0;
 integer gHasStartData = FALSE;
 float PATH_RESET_BUFFER = 0.25; // Extra delay before restarting the path
@@ -109,6 +106,12 @@ default {
             PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE
         ]);
         llSetText("Fly Duo", <1,1,1>, 1);
+        gCurrentAvatar = llAvatarOnSitTarget();
+        if (gCurrentAvatar != NULL_KEY)
+        {
+            llSetText("", ZERO_VECTOR, 0.0);
+            llRequestPermissions(gCurrentAvatar, PERMISSION_CONTROL_CAMERA);
+        }
         StartReadingNoteCard();
 
     }
@@ -135,6 +138,26 @@ default {
         if (change & CHANGED_INVENTORY)
         {
             llResetScript();
+        }
+
+        if (change & CHANGED_LINK)
+        {
+            key avatar = llAvatarOnSitTarget();
+            if (avatar != gCurrentAvatar)
+            {
+                if (avatar != NULL_KEY)
+                {
+                    gCurrentAvatar = avatar;
+                    llRequestPermissions(gCurrentAvatar, PERMISSION_CONTROL_CAMERA);
+                    llSetText("", ZERO_VECTOR, 0.0);
+                }
+                else
+                {
+                    gCurrentAvatar = NULL_KEY;
+                    llSetText("Fly Duo", <1,1,1>, 1);
+                    llClearCameraParams();
+                }
+            }
         }
     }
     
@@ -188,69 +211,6 @@ default {
     timer()
     {
         StartMotion();
-    }
-
-    link_message(integer sender_num, integer num, string msg, key id)
-    {
-        // Stand Up AVSitter
-        if (num == 90065)
-        {
-            integer sitter = (integer)msg;
-            if (sitter == 0)
-            {
-                UUID_AVATAR_0 = NULL_KEY;
-            }
-            if (sitter == 1)
-            {
-                UUID_AVATAR_1 = NULL_KEY;
-            }
-
-            if (UUID_AVATAR_0 == NULL_KEY && UUID_AVATAR_1 == NULL_KEY)
-            {
-                llSetText("Fly Duo", <1,1,1>, 1);
-            }
-            else if (UUID_AVATAR_1 == NULL_KEY)
-            {
-                llSetText("Waiting for a Flight Partner...", <1,1,1>, 1);
-            }
-            else
-            {
-                llSetText("", ZERO_VECTOR, 0.0);
-            }
-
-            if (UUID_AVATAR_0 == NULL_KEY && UUID_AVATAR_1 == NULL_KEY)
-            {
-                if (FLAG_SIT)
-                {
-                    FLAG_SIT = FALSE;
-                }
-                else
-                {
-                    llSleep(1);
-                    llDie();
-                }
-            }
-        }
-
-        // Sit AVSitter
-        if (num == 90060)
-        {
-            integer sitter = (integer)msg;
-            if (sitter == 0)
-            {
-                UUID_AVATAR_0 = id;
-                FLAG_SIT = TRUE;
-                llSetText("Waiting for a Flight Partner...", <1,1,1>, 1);
-                llRequestPermissions(UUID_AVATAR_0, PERMISSION_CONTROL_CAMERA);
-            }
-            if (sitter == 1)
-            {
-                UUID_AVATAR_1 = id;
-                FLAG_SIT = FALSE;
-                llSetText("", ZERO_VECTOR, 0.0);
-                llRegionSay(CHANNEL_REZZER, "NEW");
-            }
-      }
     }
 
 }
