@@ -12,6 +12,68 @@ float gTotalPathTime = 0.0;
 integer gHasStartData = FALSE;
 float PATH_RESET_BUFFER = 0.25; // Extra delay before restarting the path
 
+ApplyCameraSettings()
+{
+    if (gCurrentAvatar == NULL_KEY)
+    {
+        gHasCameraPermission = FALSE;
+        return;
+    }
+
+    if ((llGetPermissionsKey() == gCurrentAvatar) && (llGetPermissions() & PERMISSION_CONTROL_CAMERA))
+    {
+        list camera_params = [
+            CAMERA_ACTIVE, TRUE,
+            CAMERA_BEHINDNESS_ANGLE, PI,
+            CAMERA_BEHINDNESS_LAG, 0.1,
+            CAMERA_DISTANCE, 3.0,
+            CAMERA_FOCUS_LAG, 0.0,
+            CAMERA_FOCUS_OFFSET, <0.0, 0.0, 1.0>
+        ];
+
+        llSetCameraParams(camera_params);
+        gHasCameraPermission = TRUE;
+    }
+    else
+    {
+        gHasCameraPermission = FALSE;
+    }
+}
+
+ReleaseCameraControl()
+{
+    if (gHasCameraPermission)
+    {
+        llClearCameraParams();
+        gHasCameraPermission = FALSE;
+    }
+
+    key permKey = llGetPermissionsKey();
+    if ((permKey != NULL_KEY) && (llGetPermissions() & PERMISSION_CONTROL_CAMERA))
+    {
+        llRequestPermissions(permKey, 0);
+    }
+}
+
+RequestCameraPermissions(key avatar)
+{
+    if (avatar == NULL_KEY)
+    {
+        return;
+    }
+
+    gCurrentAvatar = avatar;
+
+    if ((llGetPermissionsKey() == avatar) && (llGetPermissions() & PERMISSION_CONTROL_CAMERA))
+    {
+        ApplyCameraSettings();
+    }
+    else
+    {
+        llRequestPermissions(avatar, PERMISSION_CONTROL_CAMERA);
+    }
+}
+
 vector parseStartPos(string line)
 {
     integer startIndex = llSubStringIndex(line, "<");
@@ -111,31 +173,21 @@ default {
         if (gCurrentAvatar != NULL_KEY)
         {
             llSetText("", ZERO_VECTOR, 0.0);
-            llRequestPermissions(gCurrentAvatar, PERMISSION_CONTROL_CAMERA);
+            RequestCameraPermissions(gCurrentAvatar);
         }
         StartReadingNoteCard();
 
     }
-    
+
     run_time_permissions(integer perm)
     {
         if (perm & PERMISSION_CONTROL_CAMERA)
         {
-            list camera_params = [
-                CAMERA_ACTIVE, TRUE,
-                CAMERA_BEHINDNESS_ANGLE, PI,
-                CAMERA_BEHINDNESS_LAG, 0.1,
-                CAMERA_DISTANCE, 3.0,
-                CAMERA_FOCUS_LAG, 0.0,
-                CAMERA_FOCUS_OFFSET, <0.0, 0.0, 1.0>
-            ];
-
-            llSetCameraParams(camera_params);
-            gHasCameraPermission = TRUE;
+            ApplyCameraSettings();
         }
         else
         {
-            gHasCameraPermission = FALSE;
+            ReleaseCameraControl();
         }
     }
 
@@ -153,24 +205,15 @@ default {
             {
                 if (avatar != NULL_KEY)
                 {
-                    if (gHasCameraPermission)
-                    {
-                        llClearCameraParams();
-                        gHasCameraPermission = FALSE;
-                    }
-                    gCurrentAvatar = avatar;
-                    llRequestPermissions(gCurrentAvatar, PERMISSION_CONTROL_CAMERA);
+                    ReleaseCameraControl();
+                    RequestCameraPermissions(avatar);
                     llSetText("", ZERO_VECTOR, 0.0);
                 }
                 else
                 {
-                    gCurrentAvatar = NULL_KEY;
                     llSetText("Fly Duo", <1,1,1>, 1);
-                    if (gHasCameraPermission)
-                    {
-                        llClearCameraParams();
-                        gHasCameraPermission = FALSE;
-                    }
+                    ReleaseCameraControl();
+                    gCurrentAvatar = NULL_KEY;
                 }
             }
         }
