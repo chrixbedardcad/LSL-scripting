@@ -55,11 +55,13 @@ ApplyCameraSettings()
 
 ReleaseCameraControl()
 {
-    if (gHasCameraPermission)
-    {
-        llClearCameraParams();
-        gHasCameraPermission = FALSE;
-    }
+    // Always try to restore the viewer's default camera handling so the
+    // rider regains normal controls immediately after the ride.
+    llClearCameraParams();
+    llSetCameraParams([CAMERA_ACTIVE, FALSE]);
+    llSetCameraAtOffset(ZERO_VECTOR);
+    llSetCameraEyeOffset(ZERO_VECTOR);
+    gHasCameraPermission = FALSE;
 
     key permKey = llGetPermissionsKey();
     if ((permKey != NULL_KEY) && (llGetPermissions() & PERMISSION_CONTROL_CAMERA))
