@@ -6,98 +6,9 @@ list gKeyframeList = [];
 string file_name;
 integer file_line_number;
 key file_request;
-key gCurrentAvatar = NULL_KEY;
-integer gHasCameraPermission = FALSE;
 float gTotalPathTime = 0.0;
 integer gHasStartData = FALSE;
 float PATH_RESET_BUFFER = 0.25; // Extra delay before restarting the path
-
-ApplyCameraSettings()
-{
-    if (gCurrentAvatar == NULL_KEY)
-    {
-        gHasCameraPermission = FALSE;
-        return;
-    }
-
-    if ((llGetPermissionsKey() == gCurrentAvatar) && (llGetPermissions() & PERMISSION_CONTROL_CAMERA))
-    {
-        // Reset the camera before applying a fresh set of parameters so it can
-        // smoothly follow the avatar throughout the ride.
-        llClearCameraParams();
-
-        list camera_params = [
-            CAMERA_ACTIVE, TRUE,
-            CAMERA_BEHINDNESS_ANGLE, 30.0,
-            CAMERA_BEHINDNESS_LAG, 0.0,
-            CAMERA_DISTANCE, 10.0,
-            // Allow the camera to move dynamically with the rider instead of
-            // locking focus/position. This mirrors the reference "lookAtMe"
-            // configuration for vehicle-follow cameras.
-            CAMERA_POSITION_LOCKED, FALSE,
-            CAMERA_POSITION_LAG, 0.0,
-            CAMERA_FOCUS_LOCKED, FALSE,
-            CAMERA_FOCUS_LAG, 0.05,
-            CAMERA_FOCUS_THRESHOLD, 0.0,
-            CAMERA_POSITION_THRESHOLD, 0.0,
-            CAMERA_PITCH, 10.0,
-            CAMERA_FOCUS_OFFSET, <2.0, 0.0, 0.0>
-        ];
-
-        llSetCameraParams(camera_params);
-        gHasCameraPermission = TRUE;
-    }
-    else
-    {
-        gHasCameraPermission = FALSE;
-    }
-}
-
-ReleaseCameraControl()
-{
-    key permKey = llGetPermissionsKey();
-    integer hasPermission = (permKey != NULL_KEY) && (llGetPermissions() & PERMISSION_CONTROL_CAMERA);
-
-    // Only touch camera parameters when the permission is still active. Some
-    // viewers will throw warnings if the script attempts to clear camera
-    // settings without the proper permission, which can happen during the
-    // transition between riders.
-    if (hasPermission)
-    {
-        // Always try to restore the viewer's default camera handling so the
-        // rider regains normal controls immediately after the ride.
-        llClearCameraParams();
-        llSetCameraParams([CAMERA_ACTIVE, FALSE]);
-        llSetCameraAtOffset(ZERO_VECTOR);
-        llSetCameraEyeOffset(ZERO_VECTOR);
-    }
-
-    gHasCameraPermission = FALSE;
-
-    if (hasPermission)
-    {
-        llRequestPermissions(permKey, 0);
-    }
-}
-
-RequestCameraPermissions(key avatar)
-{
-    if (avatar == NULL_KEY)
-    {
-        return;
-    }
-
-    gCurrentAvatar = avatar;
-
-    integer hasPermission = (llGetPermissionsKey() == avatar) && (llGetPermissions() & PERMISSION_CONTROL_CAMERA);
-    if (hasPermission)
-    {
-        ApplyCameraSettings();
-    }
-
-    // Always request camera permissions when a sit is detected to ensure control is granted.
-    llRequestPermissions(avatar, PERMISSION_CONTROL_CAMERA);
-}
 
 vector parseStartPos(string line)
 {
@@ -194,26 +105,13 @@ default {
             PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE
         ]);
         llSetText("Fly Duo", <1,1,1>, 1);
-        gCurrentAvatar = llAvatarOnSitTarget();
-        if (gCurrentAvatar != NULL_KEY)
+        key avatar = llAvatarOnSitTarget();
+        if (avatar != NULL_KEY)
         {
             llSetText("", ZERO_VECTOR, 0.0);
-            RequestCameraPermissions(gCurrentAvatar);
         }
         StartReadingNoteCard();
 
-    }
-
-    run_time_permissions(integer perm)
-    {
-        if (perm & PERMISSION_CONTROL_CAMERA)
-        {
-            ApplyCameraSettings();
-        }
-        else
-        {
-            ReleaseCameraControl();
-        }
     }
 
     changed(integer change)
@@ -226,20 +124,13 @@ default {
         if (change & CHANGED_LINK)
         {
             key avatar = llAvatarOnSitTarget();
-            if (avatar != gCurrentAvatar)
+            if (avatar != NULL_KEY)
             {
-                if (avatar != NULL_KEY)
-                {
-                    ReleaseCameraControl();
-                    RequestCameraPermissions(avatar);
-                    llSetText("", ZERO_VECTOR, 0.0);
-                }
-                else
-                {
-                    llSetText("Fly Duo", <1,1,1>, 1);
-                    ReleaseCameraControl();
-                    gCurrentAvatar = NULL_KEY;
-                }
+                llSetText("", ZERO_VECTOR, 0.0);
+            }
+            else
+            {
+                llSetText("Fly Duo", <1,1,1>, 1);
             }
         }
     }
