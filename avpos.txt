@@ -1,0 +1,67 @@
+--✄--COPY BELOW INTO "AVpos" NOTECARD--✄--
+
+"Calder" AVsitter 2.1
+KFM 1
+SITTER 0
+POSE female|[RNP] Swing #3
+POSE male|m5
+TOMENU couples
+MENU couples
+SYNC cuddle1|Lazy15Female
+SYNC cuddle2|Lazy12Female
+SYNC cuddle3|Lazy9Female
+SYNC cuddle4|Lazy10Female
+SYNC cuddle5|[RNP] Couple #77_Watch TV_Male1
+SYNC cuddle6|ac-cozy(5)fm
+SYNC cuddle7|dc-listen(4)fm
+SYNC cuddle8|dc-support(1)fm
+SYNC cuddle9|dc-sure(3)fm
+{female}<0.061,-0.406,0.019><-90,-8,0>
+{male}<0.061,-0.435,0.019><-90,-8,0>
+{cuddle1}<-0.158,0.172,0.155><-90,-0.9,-24>
+{cuddle2}<-0.05,0.104,0.499><-90,-7.8,23.7>
+{cuddle3}<-0.056,0.083,0.346><-90,-7,0>
+{cuddle4}<-0.058,0.127,0.203><-90.3,-8.6,-22.6>
+
+{cuddle5}<0.117,-0.426,-0.096><-89.6,-16.8,82.4>
+{cuddle6}<0.004,0.032,0.587><-90.5,0,14.5>
+
+{cuddle7}<0.072,0.135,0.115><-90,-7.5,0>
+{cuddle8}<-0.196,0.036,-0.562><-93.7,-12.9,-90.1>
+{cuddle9}<0.091,-0.479,-0.116><-88.8,-15,0.6>
+
+SITTER 1
+
+POSE female1|[RNP] Swing sit #2
+POSE male1|m1
+TOMENU couples
+MENU couples
+
+SYNC cuddle1|Lazy15Male
+SYNC cuddle2|Lazy12Male
+SYNC cuddle3|Lazy9Male
+SYNC cuddle4|Lazy10Male
+SYNC cuddle5|[RNP] Couple #77_Watch TV_Male2
+SYNC cuddle6|ac-cozy(5)m
+SYNC cuddle7|dc-listen(4)m
+SYNC cuddle8|dc-support(1)m
+SYNC cuddle9|dc-sure(3)m
+
+{cuddle1}<-0.155,0.182,0.135><-90,-0.9,-24>
+{cuddle2}<-0.053,0.145,0.501><-90,-7.8,23.7>
+{cuddle3}<-0.017,0.165,0.349><-90,-7,0>
+{cuddle4}<-0.065,0.167,0.206><-90.3,-8.6,-22.6>
+{cuddle5}<0.113,-0.424,-0.059><-89.6,-16.8,82.4>
+{cuddle6}<-0.054,0.053,0.665><-90.5,0,2>
+{cuddle7}<0.108,0.199,-0.215><-90,-7.5,0>
+{cuddle8}<-0.207,0.086,-0.388><-93.7,-12.9,-90.1>
+{cuddle9}<0.006,-0.471,0.085><-88.8,-15,0.6>
+{female1}<0.011,-0.432,0.64><-90.2,-13.4,-24.7>
+{male1}<-0.013,-0.45,0.64><-88.9,-13.7,-6.2>
+
+SITTER 2
+
+POSE female2|[RNP] Swing sit #2_mirror
+POSE male2|m1
+{female2}<0.103,-0.458,-0.662><-94.1,-29,-0.2>
+{male2}<-0.007,-0.458,-0.662><-91.8,-16.7,-8.7>
