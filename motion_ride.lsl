@@ -15,16 +15,19 @@ float ROTATION_EPSILON = 0.01;
 integer gPreRideActive = FALSE;
 integer FLAG_WAIT_SITTER = TRUE;
 integer gWaitingForSitter = FALSE;
+string DEBUG_PREFIX = "[motion_ride debug] ";
 
 UpdateWaitingForSitter()
 {
     if (FLAG_WAIT_SITTER && llAvatarOnSitTarget() == NULL_KEY)
     {
         gWaitingForSitter = TRUE;
+        llOwnerSay(DEBUG_PREFIX + "Waiting for sitter (no avatar on sit target).");
     }
     else
     {
         gWaitingForSitter = FALSE;
+        llOwnerSay(DEBUG_PREFIX + "Not waiting for sitter (avatar present or waiting disabled).");
     }
 }
 
@@ -104,11 +107,13 @@ StartMotion()
 {
     if (!gHasStartData || !llGetListLength(gKeyframeList))
     {
+        llOwnerSay(DEBUG_PREFIX + "StartMotion aborted: missing start data or empty keyframe list.");
         return;
     }
 
     gPreRideActive = FALSE;
     gWaitingForSitter = FALSE;
+    llOwnerSay(DEBUG_PREFIX + "Starting motion. Timer set for " + (string)(gTotalPathTime + PATH_RESET_BUFFER) + " seconds.");
     ResetToStart();
     llSetKeyframedMotion(gKeyframeList, [KFM_MODE, KFM_FORWARD]);
 
@@ -126,11 +131,13 @@ StartPreRide()
 {
     if (gPreRideActive)
     {
+        llOwnerSay(DEBUG_PREFIX + "StartPreRide ignored: pre-ride already active.");
         return;
     }
 
     if (!gHasStartData || !llGetListLength(gKeyframeList))
     {
+        llOwnerSay(DEBUG_PREFIX + "StartPreRide fallback: missing data so starting motion directly.");
         StartMotion();
         return;
     }
@@ -142,8 +149,11 @@ StartPreRide()
     float distance = llVecMag(worldOffset);
     float angle = llAngleBetween(currentRot, START_ROT);
 
+    llOwnerSay(DEBUG_PREFIX + "StartPreRide invoked. distance=" + (string)distance + " angle=" + (string)angle);
+
     if (distance <= POSITION_EPSILON && angle <= ROTATION_EPSILON)
     {
+        llOwnerSay(DEBUG_PREFIX + "Already at start position/rotation. Starting motion immediately.");
         StartMotion();
         return;
     }
@@ -159,6 +169,7 @@ StartPreRide()
         duration = PRE_RIDE_MIN_TIME;
     }
 
+    llOwnerSay(DEBUG_PREFIX + "Pre-ride motion offset=" + (string)localOffset + " duration=" + (string)duration);
     llSetKeyframedMotion([], []);
     llSetTimerEvent(0.0);
     gPreRideActive = TRUE;
@@ -295,12 +306,14 @@ default {
         {
             if (!gWaitingForSitter)
             {
+                llOwnerSay(DEBUG_PREFIX + "Timer fired with no sitter. Resetting to start.");
                 ResetToStart();
             }
             gWaitingForSitter = TRUE;
             llSetTimerEvent(0.0);
             return;
         }
+        llOwnerSay(DEBUG_PREFIX + "Timer fired. Starting motion.");
         StartMotion();
     }
 
