@@ -124,7 +124,7 @@ StartPreRide()
     rotation currentRot = llGetRot();
     vector worldOffset = START_POS - currentPos;
     float distance = llVecMag(worldOffset);
-    rotation deltaRot = START_ROT / currentRot;
+    rotation deltaRot = llRotBetween(currentRot, START_ROT);
     float angle = llAngleBetween(currentRot, START_ROT);
 
     if (distance <= POSITION_EPSILON && angle <= ROTATION_EPSILON)
