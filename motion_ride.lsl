@@ -221,6 +221,8 @@ StartPreRide()
     }
 
     rotation deltaRot = START_ROT / currentRot;
+    llOwnerSay(DEBUG_PREFIX + "Pre-ride keyframe preview: pos=" + (string)localOffset +
+        " rot=" + (string)deltaRot + " time=" + (string)duration);
     llOwnerSay(DEBUG_PREFIX + "Pre-ride motion offset=" + (string)localOffset + " deltaRot=" + (string)deltaRot +
         " duration=" + (string)duration);
     llSetKeyframedMotion([], []);
