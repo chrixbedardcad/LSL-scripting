@@ -14,8 +14,11 @@ float POSITION_EPSILON = 0.01;
 float ROTATION_EPSILON = 0.01;
 integer gPreRideActive = FALSE;
 integer FLAG_WAIT_SITTER = TRUE;
+integer FLAG_DIE_ALL_STAND_UP = FALSE;
 integer gWaitingForSitter = FALSE;
 string DEBUG_PREFIX = "[motion_ride debug] ";
+integer gTrackedSitterCount = 0;
+integer gHadAnySitters = FALSE;
 
 rotation NormalizeRotation(rotation rot)
 {
@@ -95,6 +98,46 @@ UpdateWaitingForSitter()
     }
 }
 
+integer CountSittersOnPrim()
+{
+    integer linkCount = llGetNumberOfPrims();
+    integer link;
+    integer sitterCount = 0;
+    for (link = 1; link <= linkCount; ++link)
+    {
+        if (llAvatarOnLinkSitTarget(link) != NULL_KEY)
+        {
+            ++sitterCount;
+        }
+    }
+    return sitterCount;
+}
+
+MaybeHandleAllSittersLeft(string context)
+{
+    if (FLAG_DIE_ALL_STAND_UP && gHadAnySitters && gTrackedSitterCount == 0)
+    {
+        llOwnerSay(DEBUG_PREFIX + "All sitters have left (" + context + "). Deleting ride.");
+        llDie();
+    }
+}
+
+UpdateTrackedSitterCount(integer newCount, string context)
+{
+    gTrackedSitterCount = newCount;
+    if (newCount > 0)
+    {
+        gHadAnySitters = TRUE;
+    }
+    MaybeHandleAllSittersLeft(context);
+}
+
+RefreshSitterCountFromLinks(string context)
+{
+    integer count = CountSittersOnPrim();
+    UpdateTrackedSitterCount(count, context);
+}
+
 integer GetSitterNumber(string msg)
 {
     list tokens = llParseString2List(msg, [" ", "|", ":", ","], []);
@@ -119,6 +162,33 @@ integer GetSitterNumber(string msg)
         index++;
     }
     return -1;
+}
+
+integer ParseActiveSitterCount(string msg)
+{
+    list data = llParseStringKeepNulls(msg, ["|"], []);
+    if (llGetListLength(data) < 5)
+    {
+        return -1;
+    }
+
+    list allSitters = llParseStringKeepNulls(llList2String(data, 4), ["@"], []);
+    integer length = llGetListLength(allSitters);
+    integer index;
+    integer count = 0;
+    for (index = 0; index < length; ++index)
+    {
+        string sitterIdStr = llList2String(allSitters, index);
+        if (sitterIdStr != "")
+        {
+            key sitterId = (key)sitterIdStr;
+            if (sitterId != NULL_KEY)
+            {
+                ++count;
+            }
+        }
+    }
+    return count;
 }
 
 vector parseStartPos(string line)
@@ -260,6 +330,7 @@ default {
         {
             llSetText("", ZERO_VECTOR, 0.0);
         }
+        RefreshSitterCountFromLinks("state_entry");
         UpdateWaitingForSitter();
         StartReadingNoteCard();
 
@@ -288,6 +359,7 @@ default {
             {
                 llSetText("Fly Duo", <1,1,1>, 1);
             }
+            RefreshSitterCountFromLinks("changed");
         }
     }
     
@@ -391,6 +463,18 @@ default {
                 LogSitterInfo("link_message");
                 StartPreRide();
             }
+        }
+        else if (num == 90045)
+        {
+            integer activeSitters = ParseActiveSitterCount(msg);
+            if (activeSitters >= 0)
+            {
+                UpdateTrackedSitterCount(activeSitters, "link_message 90045");
+            }
+        }
+        else if (num == 90065)
+        {
+            RefreshSitterCountFromLinks("link_message 90065");
         }
     }
 
