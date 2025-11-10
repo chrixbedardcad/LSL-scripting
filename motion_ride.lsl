@@ -14,11 +14,11 @@ float POSITION_EPSILON = 0.01;
 float ROTATION_EPSILON = 0.01;
 integer gPreRideActive = FALSE;
 integer FLAG_WAIT_SITTER = TRUE;
-integer FLAG_DIE_ALL_STAND_UP = FALSE;
 integer gWaitingForSitter = FALSE;
 string DEBUG_PREFIX = "[motion_ride debug] ";
 integer gTrackedSitterCount = 0;
 integer gHadAnySitters = FALSE;
+list gSitterIds = [];
 
 rotation NormalizeRotation(rotation rot)
 {
@@ -98,24 +98,28 @@ UpdateWaitingForSitter()
     }
 }
 
-integer CountSittersOnPrim()
+list CollectSitterIds()
 {
     integer linkCount = llGetNumberOfPrims();
     integer link;
-    integer sitterCount = 0;
+    list sitterIds = [];
     for (link = 1; link <= linkCount; ++link)
     {
-        if (llAvatarOnLinkSitTarget(link) != NULL_KEY)
+        key avatar = llAvatarOnLinkSitTarget(link);
+        if (avatar != NULL_KEY)
         {
-            ++sitterCount;
+            if (llListFindList(sitterIds, [avatar]) == -1)
+            {
+                sitterIds += [avatar];
+            }
         }
     }
-    return sitterCount;
+    return sitterIds;
 }
 
 MaybeHandleAllSittersLeft(string context)
 {
-    if (FLAG_DIE_ALL_STAND_UP && gHadAnySitters && gTrackedSitterCount == 0)
+    if (gHadAnySitters && gTrackedSitterCount == 0)
     {
         llOwnerSay(DEBUG_PREFIX + "All sitters have left (" + context + "). Deleting ride.");
         llDie();
@@ -134,8 +138,42 @@ UpdateTrackedSitterCount(integer newCount, string context)
 
 RefreshSitterCountFromLinks(string context)
 {
-    integer count = CountSittersOnPrim();
-    UpdateTrackedSitterCount(count, context);
+    list sitterIds = CollectSitterIds();
+    gSitterIds = sitterIds;
+    UpdateTrackedSitterCount(llGetListLength(sitterIds), context);
+}
+
+TrackSitterJoined(key sitterId, string context)
+{
+    if (sitterId == NULL_KEY)
+    {
+        RefreshSitterCountFromLinks(context + " fallback");
+        return;
+    }
+
+    if (llListFindList(gSitterIds, [sitterId]) == -1)
+    {
+        gSitterIds += [sitterId];
+    }
+
+    UpdateTrackedSitterCount(llGetListLength(gSitterIds), context);
+}
+
+TrackSitterLeft(key sitterId, string context)
+{
+    if (sitterId == NULL_KEY)
+    {
+        RefreshSitterCountFromLinks(context + " fallback");
+        return;
+    }
+
+    integer index = llListFindList(gSitterIds, [sitterId]);
+    if (index != -1)
+    {
+        gSitterIds = llDeleteSubList(gSitterIds, index, index);
+    }
+
+    UpdateTrackedSitterCount(llGetListLength(gSitterIds), context);
 }
 
 integer GetSitterNumber(string msg)
@@ -164,6 +202,27 @@ integer GetSitterNumber(string msg)
     return -1;
 }
 
+list ParseSitterIdsFromSegment(string sitterSegment)
+{
+    list allSitters = llParseStringKeepNulls(sitterSegment, ["@"], []);
+    integer length = llGetListLength(allSitters);
+    integer index;
+    list sitterIds = [];
+    for (index = 0; index < length; ++index)
+    {
+        string sitterIdStr = llList2String(allSitters, index);
+        if (sitterIdStr != "")
+        {
+            key sitterId = (key)sitterIdStr;
+            if (sitterId != NULL_KEY && llListFindList(sitterIds, [sitterId]) == -1)
+            {
+                sitterIds += [sitterId];
+            }
+        }
+    }
+    return sitterIds;
+}
+
 integer ParseActiveSitterCount(string msg)
 {
     list data = llParseStringKeepNulls(msg, ["|"], []);
@@ -172,23 +231,19 @@ integer ParseActiveSitterCount(string msg)
         return -1;
     }
 
-    list allSitters = llParseStringKeepNulls(llList2String(data, 4), ["@"], []);
-    integer length = llGetListLength(allSitters);
-    integer index;
-    integer count = 0;
-    for (index = 0; index < length; ++index)
+    list sitterIds = ParseSitterIdsFromSegment(llList2String(data, 4));
+    return llGetListLength(sitterIds);
+}
+
+list ParseActiveSitterIds(string msg)
+{
+    list data = llParseStringKeepNulls(msg, ["|"], []);
+    if (llGetListLength(data) < 5)
     {
-        string sitterIdStr = llList2String(allSitters, index);
-        if (sitterIdStr != "")
-        {
-            key sitterId = (key)sitterIdStr;
-            if (sitterId != NULL_KEY)
-            {
-                ++count;
-            }
-        }
+        return [];
     }
-    return count;
+
+    return ParseSitterIdsFromSegment(llList2String(data, 4));
 }
 
 vector parseStartPos(string line)
@@ -456,6 +511,7 @@ default {
     {
         if (num == 90060)
         {
+            TrackSitterJoined(id, "link_message 90060");
             integer sitter = GetSitterNumber(msg);
             if (sitter == 0)
             {
@@ -473,12 +529,14 @@ default {
             integer activeSitters = ParseActiveSitterCount(msg);
             if (activeSitters >= 0)
             {
+                list sitterIds = ParseActiveSitterIds(msg);
+                gSitterIds = sitterIds;
                 UpdateTrackedSitterCount(activeSitters, "link_message 90045");
             }
         }
         else if (num == 90065)
         {
-            RefreshSitterCountFromLinks("link_message 90065");
+            TrackSitterLeft(id, "link_message 90065");
         }
     }
 
