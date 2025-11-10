@@ -162,7 +162,7 @@ StartReadingNoteCard()
     gKeyframeList = [];
     gTotalPathTime = 0.0;
     gHasStartData = FALSE;
-    gWaitingForSitter = FALSE;
+    gWaitingForSitter = FLAG_WAIT_SITTER;
     file_name = llGetInventoryName(INVENTORY_NOTECARD, 0);
     if (file_name == "")
     {
@@ -189,8 +189,14 @@ default {
         {
             llSetText("", ZERO_VECTOR, 0.0);
         }
+        gWaitingForSitter = FLAG_WAIT_SITTER;
         StartReadingNoteCard();
 
+    }
+
+    on_rez(integer start_param)
+    {
+        llResetScript();
     }
 
     changed(integer change)
@@ -246,8 +252,6 @@ default {
                     llOwnerSay("Reading " + file_name + " done " + (string)file_line_number + " lines.");
                     if (FLAG_WAIT_SITTER)
                     {
-                        gWaitingForSitter = TRUE;
-                        ResetToStart();
                         key avatar = llAvatarOnSitTarget();
                         if (avatar != NULL_KEY)
                         {
