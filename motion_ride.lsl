@@ -360,6 +360,10 @@ default {
                 llSetText("Fly Duo", <1,1,1>, 1);
             }
             RefreshSitterCountFromLinks("changed");
+            if (avatar == NULL_KEY)
+            {
+                MaybeHandleAllSittersLeft("changed post-stand");
+            }
         }
     }
     
