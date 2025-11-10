@@ -8,8 +8,8 @@ key file_request;
 float gTotalPathTime = 0.0;
 integer gHasStartData = FALSE;
 float PATH_RESET_BUFFER = 0.25; // Extra delay before restarting the path
-float PRE_RIDE_SPEED = 2.0;
-float PRE_RIDE_MIN_TIME = 1.0;
+vector PRE_RIDE_OFFSET = <10.0, 0.0, 0.0>;
+float PRE_RIDE_DURATION = 20.0;
 float POSITION_EPSILON = 0.01;
 float ROTATION_EPSILON = 0.01;
 integer gPreRideActive = FALSE;
@@ -210,51 +210,19 @@ StartPreRide()
     }
 
     gWaitingForSitter = FALSE;
-    vector currentPos = llGetPos();
-    rotation currentRot = llGetRot();
-    vector worldOffset = START_POS - currentPos;
-    float distance = llVecMag(worldOffset);
-    float angle = llAngleBetween(currentRot, START_ROT);
-
-    ReportCurrentTransform("StartPreRide start");
-    llOwnerSay(DEBUG_PREFIX + "StartPreRide invoked. distance=" + (string)distance + " angle=" + (string)angle +
-        " targetPos=" + (string)START_POS + " targetRot=" + (string)START_ROT);
-
-    if (distance <= POSITION_EPSILON && angle <= ROTATION_EPSILON)
-    {
-        llOwnerSay(DEBUG_PREFIX + "Already at start position/rotation. Starting motion immediately.");
-        StartMotion();
-        return;
-    }
-
-    vector localOffset = worldOffset / currentRot;
-    float duration = 0.0;
-    if (distance > 0.0)
-    {
-        duration = distance / PRE_RIDE_SPEED;
-    }
-    if (duration < PRE_RIDE_MIN_TIME)
-    {
-        duration = PRE_RIDE_MIN_TIME;
-    }
-
-    rotation deltaRot = NormalizeRotation(START_ROT / currentRot);
-    llOwnerSay(DEBUG_PREFIX + "Pre-ride keyframe preview: pos=" + (string)localOffset +
-        " rot=" + (string)deltaRot + " time=" + (string)duration);
-    llOwnerSay(DEBUG_PREFIX + "Pre-ride motion offset=" + (string)localOffset + " deltaRot=" + (string)deltaRot +
-        " duration=" + (string)duration);
+    llOwnerSay(DEBUG_PREFIX + "StartPreRide invoked. Executing simple forward motion.");
     llSetKeyframedMotion([], [KFM_COMMAND, KFM_CMD_STOP]);
     llSetKeyframedMotion([], []);
     llSetTimerEvent(0.0);
     gPreRideActive = TRUE;
     llSetKeyframedMotion([
-        localOffset,
-        deltaRot,
-        duration
+        PRE_RIDE_OFFSET,
+        ZERO_ROTATION,
+        PRE_RIDE_DURATION
     ], [
         KFM_MODE, KFM_FORWARD
     ]);
-    llSetTimerEvent(duration + PATH_RESET_BUFFER);
+    llSetTimerEvent(PRE_RIDE_DURATION);
 }
 
 StartReadingNoteCard()
@@ -377,6 +345,21 @@ default {
 
     timer()
     {
+        if (gPreRideActive)
+        {
+            llOwnerSay(DEBUG_PREFIX + "Pre-ride motion complete. Preparing to start main motion.");
+            llSetKeyframedMotion([], [KFM_COMMAND, KFM_CMD_STOP]);
+            llSetKeyframedMotion([], []);
+            gPreRideActive = FALSE;
+            llSetTimerEvent(0.0);
+            if (gHasStartData)
+            {
+                llSetRegionPos(START_POS);
+                llSetRot(START_ROT);
+            }
+            StartMotion();
+            return;
+        }
         if (FLAG_WAIT_SITTER && llAvatarOnSitTarget() == NULL_KEY)
         {
             if (!gWaitingForSitter)
