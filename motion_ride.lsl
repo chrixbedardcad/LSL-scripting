@@ -140,7 +140,6 @@ StartPreRide()
     rotation currentRot = llGetRot();
     vector worldOffset = START_POS - currentPos;
     float distance = llVecMag(worldOffset);
-    rotation deltaRot = START_ROT / currentRot;
     float angle = llAngleBetween(currentRot, START_ROT);
 
     if (distance <= POSITION_EPSILON && angle <= ROTATION_EPSILON)
@@ -163,7 +162,14 @@ StartPreRide()
     llSetKeyframedMotion([], []);
     llSetTimerEvent(0.0);
     gPreRideActive = TRUE;
-    llSetKeyframedMotion([localOffset, deltaRot, duration], [KFM_MODE, KFM_FORWARD]);
+    llSetKeyframedMotion([
+        localOffset,
+        ZERO_ROTATION,
+        duration
+    ], [
+        KFM_MODE, KFM_FORWARD,
+        KFM_DATA, KFM_TRANSLATION
+    ]);
     llSetTimerEvent(duration + PATH_RESET_BUFFER);
 }
 
