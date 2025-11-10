@@ -16,6 +16,18 @@ integer gPreRideActive = FALSE;
 integer FLAG_WAIT_SITTER = TRUE;
 integer gWaitingForSitter = FALSE;
 
+UpdateWaitingForSitter()
+{
+    if (FLAG_WAIT_SITTER && llAvatarOnSitTarget() == NULL_KEY)
+    {
+        gWaitingForSitter = TRUE;
+    }
+    else
+    {
+        gWaitingForSitter = FALSE;
+    }
+}
+
 integer GetSitterNumber(string msg)
 {
     list tokens = llParseString2List(msg, [" ", "|", ":", ","], []);
@@ -162,7 +174,7 @@ StartReadingNoteCard()
     gKeyframeList = [];
     gTotalPathTime = 0.0;
     gHasStartData = FALSE;
-    gWaitingForSitter = FLAG_WAIT_SITTER;
+    UpdateWaitingForSitter();
     file_name = llGetInventoryName(INVENTORY_NOTECARD, 0);
     if (file_name == "")
     {
@@ -189,7 +201,7 @@ default {
         {
             llSetText("", ZERO_VECTOR, 0.0);
         }
-        gWaitingForSitter = FLAG_WAIT_SITTER;
+        UpdateWaitingForSitter();
         StartReadingNoteCard();
 
     }
@@ -250,17 +262,19 @@ default {
                 else
                 {
                     llOwnerSay("Reading " + file_name + " done " + (string)file_line_number + " lines.");
-                    if (FLAG_WAIT_SITTER)
+                    key avatar = llAvatarOnSitTarget();
+                    if (avatar != NULL_KEY)
                     {
-                        key avatar = llAvatarOnSitTarget();
-                        if (avatar != NULL_KEY)
-                        {
-                            StartPreRide();
-                        }
+                        gWaitingForSitter = FALSE;
+                        StartPreRide();
                     }
                     else
                     {
-                        StartMotion();
+                        UpdateWaitingForSitter();
+                        if (!gWaitingForSitter)
+                        {
+                            StartMotion();
+                        }
                     }
                     return;
                 }
