@@ -8,6 +8,37 @@ key file_request;
 float gTotalPathTime = 0.0;
 integer gHasStartData = FALSE;
 float PATH_RESET_BUFFER = 0.25; // Extra delay before restarting the path
+float PRE_RIDE_SPEED = 5.0;
+float PRE_RIDE_MIN_TIME = 1.0;
+float POSITION_EPSILON = 0.01;
+float ROTATION_EPSILON = 0.01;
+integer gPreRideActive = FALSE;
+
+integer GetSitterNumber(string msg)
+{
+    list tokens = llParseString2List(msg, [" ", "|", ":", ","], []);
+    integer count = llGetListLength(tokens);
+    integer index = 0;
+    while (index < count)
+    {
+        string token = llStringTrim(llList2String(tokens, index), STRING_TRIM);
+        if (llToLower(token) == "sitter" && (index + 1) < count)
+        {
+            string nextToken = llList2String(tokens, index + 1);
+            return (integer)nextToken;
+        }
+        if (token != "")
+        {
+            integer value = (integer)token;
+            if ((string)value == token)
+            {
+                return value;
+            }
+        }
+        index++;
+    }
+    return -1;
+}
 
 vector parseStartPos(string line)
 {
@@ -62,6 +93,7 @@ StartMotion()
         return;
     }
 
+    gPreRideActive = FALSE;
     ResetToStart();
     llSetKeyframedMotion(gKeyframeList, [KFM_MODE, KFM_FORWARD]);
 
@@ -73,6 +105,50 @@ StartMotion()
     {
         llSetTimerEvent(0.0);
     }
+}
+
+StartPreRide()
+{
+    if (gPreRideActive)
+    {
+        return;
+    }
+
+    if (!gHasStartData || !llGetListLength(gKeyframeList))
+    {
+        StartMotion();
+        return;
+    }
+
+    vector currentPos = llGetPos();
+    rotation currentRot = llGetRot();
+    vector worldOffset = START_POS - currentPos;
+    float distance = llVecMag(worldOffset);
+    rotation deltaRot = START_ROT / currentRot;
+    float angle = llAngleBetween(currentRot, START_ROT);
+
+    if (distance <= POSITION_EPSILON && angle <= ROTATION_EPSILON)
+    {
+        StartMotion();
+        return;
+    }
+
+    vector localOffset = worldOffset / currentRot;
+    float duration = 0.0;
+    if (distance > 0.0)
+    {
+        duration = distance / PRE_RIDE_SPEED;
+    }
+    if (duration < PRE_RIDE_MIN_TIME)
+    {
+        duration = PRE_RIDE_MIN_TIME;
+    }
+
+    llSetKeyframedMotion([], []);
+    llSetTimerEvent(0.0);
+    gPreRideActive = TRUE;
+    llSetKeyframedMotion([localOffset, deltaRot, duration], [KFM_MODE, KFM_FORWARD]);
+    llSetTimerEvent(duration + PATH_RESET_BUFFER);
 }
 
 StartReadingNoteCard()
@@ -174,6 +250,18 @@ default {
     timer()
     {
         StartMotion();
+    }
+
+    link_message(integer sender, integer num, string msg, key id)
+    {
+        if (num == 90060)
+        {
+            integer sitter = GetSitterNumber(msg);
+            if (sitter == 0)
+            {
+                StartPreRide();
+            }
+        }
     }
 
 }
