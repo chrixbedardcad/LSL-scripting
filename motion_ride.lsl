@@ -82,8 +82,19 @@ LogSitterInfo(string context)
     llOwnerSay(DEBUG_PREFIX + "Sitters (" + context + "): count=" + (string)sitterCount + " names=" + llList2CSV(names));
 }
 
+integer IsSitterManagementEnabled()
+{
+    return FLAG_WAIT_SITTER != FALSE;
+}
+
 UpdateWaitingForSitter()
 {
+    if (!IsSitterManagementEnabled())
+    {
+        gWaitingForSitter = FALSE;
+        return;
+    }
+
     if (FLAG_WAIT_SITTER && llAvatarOnSitTarget() == NULL_KEY)
     {
         gWaitingForSitter = TRUE;
@@ -100,6 +111,11 @@ UpdateWaitingForSitter()
 
 list CollectSitterIds()
 {
+    if (!IsSitterManagementEnabled())
+    {
+        return [];
+    }
+
     integer linkCount = llGetNumberOfPrims();
     integer link;
     list sitterIds = [];
@@ -119,6 +135,11 @@ list CollectSitterIds()
 
 MaybeHandleAllSittersLeft(string context)
 {
+    if (!IsSitterManagementEnabled())
+    {
+        return;
+    }
+
     if (gHadAnySitters && gTrackedSitterCount == 0)
     {
         llOwnerSay(DEBUG_PREFIX + "All sitters have left (" + context + "). Deleting ride.");
@@ -128,6 +149,11 @@ MaybeHandleAllSittersLeft(string context)
 
 UpdateTrackedSitterCount(integer newCount, string context)
 {
+    if (!IsSitterManagementEnabled())
+    {
+        return;
+    }
+
     gTrackedSitterCount = newCount;
     if (newCount > 0)
     {
@@ -138,6 +164,11 @@ UpdateTrackedSitterCount(integer newCount, string context)
 
 RefreshSitterCountFromLinks(string context)
 {
+    if (!IsSitterManagementEnabled())
+    {
+        return;
+    }
+
     list sitterIds = CollectSitterIds();
     gSitterIds = sitterIds;
     UpdateTrackedSitterCount(llGetListLength(sitterIds), context);
@@ -145,6 +176,11 @@ RefreshSitterCountFromLinks(string context)
 
 TrackSitterJoined(key sitterId, string context)
 {
+    if (!IsSitterManagementEnabled())
+    {
+        return;
+    }
+
     if (sitterId == NULL_KEY)
     {
         RefreshSitterCountFromLinks(context + " fallback");
@@ -161,6 +197,11 @@ TrackSitterJoined(key sitterId, string context)
 
 TrackSitterLeft(key sitterId, string context)
 {
+    if (!IsSitterManagementEnabled())
+    {
+        return;
+    }
+
     if (sitterId == NULL_KEY)
     {
         RefreshSitterCountFromLinks(context + " fallback");
@@ -490,6 +531,19 @@ default {
             }
             StartMotion();
             return;
+        }
+        if (!IsSitterManagementEnabled())
+        {
+            if (llAvatarOnSitTarget() == NULL_KEY)
+            {
+                llOwnerSay(DEBUG_PREFIX + "Timer fired with sitter management disabled and no sitters. Deleting ride.");
+                llSetKeyframedMotion([], [KFM_COMMAND, KFM_CMD_STOP]);
+                llSetKeyframedMotion([], []);
+                llSetTimerEvent(0.0);
+                llDie();
+                return;
+            }
+            llOwnerSay(DEBUG_PREFIX + "Timer fired with sitter management disabled but sitter present. Restarting motion.");
         }
         if (FLAG_WAIT_SITTER && llAvatarOnSitTarget() == NULL_KEY)
         {
