@@ -17,6 +17,23 @@ integer FLAG_WAIT_SITTER = TRUE;
 integer gWaitingForSitter = FALSE;
 string DEBUG_PREFIX = "[motion_ride debug] ";
 
+rotation NormalizeRotation(rotation rot)
+{
+    float magnitude = llSqrt(rot.x * rot.x + rot.y * rot.y + rot.z * rot.z + rot.s * rot.s);
+    if (magnitude <= 0.0)
+    {
+        return ZERO_ROTATION;
+    }
+
+    if (llFabs(1.0 - magnitude) <= 0.00001)
+    {
+        return rot;
+    }
+
+    float invMag = 1.0 / magnitude;
+    return <rot.x * invMag, rot.y * invMag, rot.z * invMag, rot.s * invMag>;
+}
+
 DumpKeyframeInfo(string context)
 {
     integer count = llGetListLength(gKeyframeList) / 3;
@@ -120,7 +137,7 @@ rotation parseStartRot(string line)
     startIndex = llSubStringIndex(line, "<");
     endIndex = llSubStringIndex(line, ">");
     rotation rot = (rotation)llGetSubString(line, startIndex, endIndex);
-    return rot;
+    return NormalizeRotation(rot);
 }
 list parseLine(string line)
 {
@@ -131,7 +148,7 @@ list parseLine(string line)
     line = llDeleteSubString(line, 0, endIndex);
     startIndex = llSubStringIndex(line, "<");
     endIndex = llSubStringIndex(line, ">");
-    rotation rot = (rotation)llGetSubString(line, startIndex, endIndex);
+    rotation rot = NormalizeRotation((rotation)llGetSubString(line, startIndex, endIndex));
     
     string durationText = llStringTrim(llDeleteSubString(line, 0, endIndex), STRING_TRIM);
     float time = (float)durationText;
@@ -145,6 +162,7 @@ ResetToStart()
         return;
     }
 
+    llSetKeyframedMotion([], [KFM_COMMAND, KFM_CMD_STOP]);
     llSetKeyframedMotion([], []);
     llSetRegionPos(START_POS);
     llSetRot(START_ROT);
@@ -220,11 +238,12 @@ StartPreRide()
         duration = PRE_RIDE_MIN_TIME;
     }
 
-    rotation deltaRot = START_ROT / currentRot;
+    rotation deltaRot = NormalizeRotation(START_ROT / currentRot);
     llOwnerSay(DEBUG_PREFIX + "Pre-ride keyframe preview: pos=" + (string)localOffset +
         " rot=" + (string)deltaRot + " time=" + (string)duration);
     llOwnerSay(DEBUG_PREFIX + "Pre-ride motion offset=" + (string)localOffset + " deltaRot=" + (string)deltaRot +
         " duration=" + (string)duration);
+    llSetKeyframedMotion([], [KFM_COMMAND, KFM_CMD_STOP]);
     llSetKeyframedMotion([], []);
     llSetTimerEvent(0.0);
     gPreRideActive = TRUE;
@@ -240,6 +259,7 @@ StartPreRide()
 
 StartReadingNoteCard()
 {
+    llSetKeyframedMotion([], [KFM_COMMAND, KFM_CMD_STOP]);
     llSetKeyframedMotion([], []);
     llSetTimerEvent(0.0);
     gKeyframeList = [];
