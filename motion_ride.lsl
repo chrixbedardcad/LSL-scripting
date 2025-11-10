@@ -13,6 +13,8 @@ float PRE_RIDE_MIN_TIME = 1.0;
 float POSITION_EPSILON = 0.01;
 float ROTATION_EPSILON = 0.01;
 integer gPreRideActive = FALSE;
+integer FLAG_WAIT_SITTER = TRUE;
+integer gWaitingForSitter = FALSE;
 
 integer GetSitterNumber(string msg)
 {
@@ -94,6 +96,7 @@ StartMotion()
     }
 
     gPreRideActive = FALSE;
+    gWaitingForSitter = FALSE;
     ResetToStart();
     llSetKeyframedMotion(gKeyframeList, [KFM_MODE, KFM_FORWARD]);
 
@@ -120,6 +123,7 @@ StartPreRide()
         return;
     }
 
+    gWaitingForSitter = FALSE;
     vector currentPos = llGetPos();
     rotation currentRot = llGetRot();
     vector worldOffset = START_POS - currentPos;
@@ -158,6 +162,7 @@ StartReadingNoteCard()
     gKeyframeList = [];
     gTotalPathTime = 0.0;
     gHasStartData = FALSE;
+    gWaitingForSitter = FALSE;
     file_name = llGetInventoryName(INVENTORY_NOTECARD, 0);
     if (file_name == "")
     {
@@ -239,7 +244,20 @@ default {
                 else
                 {
                     llOwnerSay("Reading " + file_name + " done " + (string)file_line_number + " lines.");
-                    StartMotion();
+                    if (FLAG_WAIT_SITTER)
+                    {
+                        gWaitingForSitter = TRUE;
+                        ResetToStart();
+                        key avatar = llAvatarOnSitTarget();
+                        if (avatar != NULL_KEY)
+                        {
+                            StartPreRide();
+                        }
+                    }
+                    else
+                    {
+                        StartMotion();
+                    }
                     return;
                 }
                 file_line_number++;
@@ -249,6 +267,16 @@ default {
 
     timer()
     {
+        if (FLAG_WAIT_SITTER && llAvatarOnSitTarget() == NULL_KEY)
+        {
+            if (!gWaitingForSitter)
+            {
+                ResetToStart();
+            }
+            gWaitingForSitter = TRUE;
+            llSetTimerEvent(0.0);
+            return;
+        }
         StartMotion();
     }
 
@@ -259,6 +287,11 @@ default {
             integer sitter = GetSitterNumber(msg);
             if (sitter == 0)
             {
+                if (FLAG_WAIT_SITTER && (!gHasStartData || !llGetListLength(gKeyframeList)))
+                {
+                    gWaitingForSitter = TRUE;
+                    return;
+                }
                 StartPreRide();
             }
         }
