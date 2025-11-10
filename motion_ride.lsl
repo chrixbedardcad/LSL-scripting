@@ -1,5 +1,4 @@
 // Global variables
-integer CHANNEL_ID = -777;
 vector START_POS;
 rotation START_ROT;
 list gKeyframeList = [];
@@ -96,7 +95,6 @@ StartReadingNoteCard()
 default {
     state_entry()
     {
-        llListen(CHANNEL_ID, "", NULL_KEY, "");
         llSitTarget(<0.0, 0.0, 1.0>, ZERO_ROTATION);
         llSetKeyframedMotion([], []);
         llSetLinkPrimitiveParamsFast(LINK_ROOT, [
@@ -170,15 +168,6 @@ default {
                 }
                 file_line_number++;
             }
-        }
-    }
-
-    listen(integer channel, string name, key id, string message)
-    {
-        string str;
-        if ((str = llJsonGetValue(message, ["END_PATH"])) != JSON_INVALID)
-        {
-            StartMotion();
         }
     }
 
