@@ -8,7 +8,7 @@ key file_request;
 float gTotalPathTime = 0.0;
 integer gHasStartData = FALSE;
 float PATH_RESET_BUFFER = 0.25; // Extra delay before restarting the path
-float PRE_RIDE_SPEED = 5.0;
+float PRE_RIDE_SPEED = 2.0;
 float PRE_RIDE_MIN_TIME = 1.0;
 float POSITION_EPSILON = 0.01;
 float ROTATION_EPSILON = 0.01;
@@ -17,16 +17,63 @@ integer FLAG_WAIT_SITTER = TRUE;
 integer gWaitingForSitter = FALSE;
 string DEBUG_PREFIX = "[motion_ride debug] ";
 
+DumpKeyframeInfo(string context)
+{
+    integer count = llGetListLength(gKeyframeList) / 3;
+    integer index;
+    string lines = "";
+    for (index = 0; index < count && index < 10; ++index)
+    {
+        integer base = index * 3;
+        vector pos = llList2Vector(gKeyframeList, base);
+        rotation rot = llList2Rot(gKeyframeList, base + 1);
+        float time = llList2Float(gKeyframeList, base + 2);
+        lines += "[#" + (string)index + "] pos=" + (string)pos + " rot=" + (string)rot + " dt=" + (string)time + "\n";
+    }
+    if (count > 10)
+    {
+        lines += "... (" + (string)(count - 10) + " additional frames)";
+    }
+    llOwnerSay(DEBUG_PREFIX + "Keyframe dump (" + context + "): frames=" + (string)count +
+        " totalTime=" + (string)gTotalPathTime + "\n" + lines);
+}
+
+ReportCurrentTransform(string context)
+{
+    vector pos = llGetPos();
+    rotation rot = llGetRot();
+    llOwnerSay(DEBUG_PREFIX + context + " currentPos=" + (string)pos + " currentRot=" + (string)rot);
+}
+
+LogSitterInfo(string context)
+{
+    integer linkCount = llGetNumberOfPrims();
+    integer link;
+    list names = [];
+    for (link = 1; link <= linkCount; ++link)
+    {
+        key avatar = llAvatarOnLinkSitTarget(link);
+        if (avatar != NULL_KEY)
+        {
+            names += llKey2Name(avatar);
+        }
+    }
+    integer sitterCount = llGetListLength(names);
+    llOwnerSay(DEBUG_PREFIX + "Sitters (" + context + "): count=" + (string)sitterCount + " names=" + llList2CSV(names));
+}
+
 UpdateWaitingForSitter()
 {
     if (FLAG_WAIT_SITTER && llAvatarOnSitTarget() == NULL_KEY)
     {
         gWaitingForSitter = TRUE;
+        LogSitterInfo("waiting");
         llOwnerSay(DEBUG_PREFIX + "Waiting for sitter (no avatar on sit target).");
     }
     else
     {
         gWaitingForSitter = FALSE;
+        LogSitterInfo("ready");
         llOwnerSay(DEBUG_PREFIX + "Not waiting for sitter (avatar present or waiting disabled).");
     }
 }
@@ -114,6 +161,8 @@ StartMotion()
     gPreRideActive = FALSE;
     gWaitingForSitter = FALSE;
     llOwnerSay(DEBUG_PREFIX + "Starting motion. Timer set for " + (string)(gTotalPathTime + PATH_RESET_BUFFER) + " seconds.");
+    DumpKeyframeInfo("StartMotion");
+    ReportCurrentTransform("StartMotion before reset");
     ResetToStart();
     llSetKeyframedMotion(gKeyframeList, [KFM_MODE, KFM_FORWARD]);
 
@@ -149,7 +198,9 @@ StartPreRide()
     float distance = llVecMag(worldOffset);
     float angle = llAngleBetween(currentRot, START_ROT);
 
-    llOwnerSay(DEBUG_PREFIX + "StartPreRide invoked. distance=" + (string)distance + " angle=" + (string)angle);
+    ReportCurrentTransform("StartPreRide start");
+    llOwnerSay(DEBUG_PREFIX + "StartPreRide invoked. distance=" + (string)distance + " angle=" + (string)angle +
+        " targetPos=" + (string)START_POS + " targetRot=" + (string)START_ROT);
 
     if (distance <= POSITION_EPSILON && angle <= ROTATION_EPSILON)
     {
@@ -169,17 +220,18 @@ StartPreRide()
         duration = PRE_RIDE_MIN_TIME;
     }
 
-    llOwnerSay(DEBUG_PREFIX + "Pre-ride motion offset=" + (string)localOffset + " duration=" + (string)duration);
+    rotation deltaRot = START_ROT / currentRot;
+    llOwnerSay(DEBUG_PREFIX + "Pre-ride motion offset=" + (string)localOffset + " deltaRot=" + (string)deltaRot +
+        " duration=" + (string)duration);
     llSetKeyframedMotion([], []);
     llSetTimerEvent(0.0);
     gPreRideActive = TRUE;
     llSetKeyframedMotion([
         localOffset,
-        ZERO_ROTATION,
+        deltaRot,
         duration
     ], [
-        KFM_MODE, KFM_FORWARD,
-        KFM_DATA, KFM_TRANSLATION
+        KFM_MODE, KFM_FORWARD
     ]);
     llSetTimerEvent(duration + PATH_RESET_BUFFER);
 }
@@ -279,6 +331,7 @@ default {
                 else
                 {
                     llOwnerSay("Reading " + file_name + " done " + (string)file_line_number + " lines.");
+                    DumpKeyframeInfo("load");
                     key avatar = llAvatarOnSitTarget();
                     if (avatar != NULL_KEY)
                     {
@@ -314,6 +367,7 @@ default {
             return;
         }
         llOwnerSay(DEBUG_PREFIX + "Timer fired. Starting motion.");
+        ReportCurrentTransform("Timer start");
         StartMotion();
     }
 
@@ -329,6 +383,7 @@ default {
                     gWaitingForSitter = TRUE;
                     return;
                 }
+                LogSitterInfo("link_message");
                 StartPreRide();
             }
         }
