@@ -15,10 +15,28 @@ float ROTATION_EPSILON = 0.01;
 integer gPreRideActive = FALSE;
 integer FLAG_WAIT_SITTER = TRUE;
 integer gWaitingForSitter = FALSE;
+integer REZZER_CHANNEL = -339189999;
 string DEBUG_PREFIX = "[motion_ride debug] ";
 integer gTrackedSitterCount = 0;
 integer gHadAnySitters = FALSE;
 list gSitterIds = [];
+integer gRezzerNotified = FALSE;
+
+NotifyRezzerOfNewSitter()
+{
+    if (!FLAG_WAIT_SITTER)
+    {
+        return;
+    }
+
+    if (gRezzerNotified)
+    {
+        return;
+    }
+
+    gRezzerNotified = TRUE;
+    llRegionSay(REZZER_CHANNEL, "NEW");
+}
 
 rotation NormalizeRotation(rotation rot)
 {
@@ -154,9 +172,14 @@ UpdateTrackedSitterCount(integer newCount, string context)
         return;
     }
 
+    integer hadAnySittersBefore = gHadAnySitters;
     gTrackedSitterCount = newCount;
     if (newCount > 0)
     {
+        if (!hadAnySittersBefore)
+        {
+            NotifyRezzerOfNewSitter();
+        }
         gHadAnySitters = TRUE;
     }
     MaybeHandleAllSittersLeft(context);
