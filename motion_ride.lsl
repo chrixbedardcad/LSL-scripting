@@ -534,18 +534,9 @@ default {
         }
         if (!IsSitterManagementEnabled())
         {
-            if (llAvatarOnSitTarget() == NULL_KEY)
-            {
-                llOwnerSay(DEBUG_PREFIX + "Timer fired with sitter management disabled and no sitters. Deleting ride.");
-                llSetKeyframedMotion([], [KFM_COMMAND, KFM_CMD_STOP]);
-                llSetKeyframedMotion([], []);
-                llSetTimerEvent(0.0);
-                llDie();
-                return;
-            }
-            llOwnerSay(DEBUG_PREFIX + "Timer fired with sitter management disabled but sitter present. Restarting motion.");
+            llOwnerSay(DEBUG_PREFIX + "Timer fired with sitter management disabled. Continuing motion without sitter checks.");
         }
-        if (FLAG_WAIT_SITTER && llAvatarOnSitTarget() == NULL_KEY)
+        else if (FLAG_WAIT_SITTER && llAvatarOnSitTarget() == NULL_KEY)
         {
             if (!gWaitingForSitter)
             {
