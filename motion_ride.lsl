@@ -1,4 +1,5 @@
 // Global variables
+integer AUTO_RIDE = FALSE;
 vector START_POS;
 rotation START_ROT;
 list gKeyframeList = [];
@@ -22,9 +23,14 @@ integer gHadAnySitters = FALSE;
 list gSitterIds = [];
 integer gRezzerNotified = FALSE;
 
+integer IsAutoRideMode()
+{
+    return AUTO_RIDE != FALSE;
+}
+
 NotifyRezzerOfNewSitter()
 {
-    if (!FLAG_WAIT_SITTER)
+    if (!FLAG_WAIT_SITTER || IsAutoRideMode())
     {
         return;
     }
@@ -102,7 +108,7 @@ LogSitterInfo(string context)
 
 integer IsSitterManagementEnabled()
 {
-    return FLAG_WAIT_SITTER != FALSE;
+    return !IsAutoRideMode() && FLAG_WAIT_SITTER != FALSE;
 }
 
 UpdateWaitingForSitter()
@@ -385,6 +391,12 @@ StartMotion()
 
 StartPreRide()
 {
+    if (IsAutoRideMode())
+    {
+        StartMotion();
+        return;
+    }
+
     if (gPreRideActive)
     {
         llOwnerSay(DEBUG_PREFIX + "StartPreRide ignored: pre-ride already active.");
@@ -436,21 +448,29 @@ StartReadingNoteCard()
 default {
     state_entry()
     {
-        llSitTarget(<0.0, 0.0, 1.0>, ZERO_ROTATION);
         llSetKeyframedMotion([], []);
         llSetLinkPrimitiveParamsFast(LINK_ROOT, [
             PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_CONVEX,
             PRIM_LINK_TARGET, LINK_ALL_CHILDREN,
             PRIM_PHYSICS_SHAPE_TYPE, PRIM_PHYSICS_SHAPE_NONE
         ]);
-        llSetText("Fly Duo", <1,1,1>, 1);
-        key avatar = llAvatarOnSitTarget();
-        if (avatar != NULL_KEY)
+        if (IsAutoRideMode())
         {
             llSetText("", ZERO_VECTOR, 0.0);
+            gWaitingForSitter = FALSE;
         }
-        RefreshSitterCountFromLinks("state_entry");
-        UpdateWaitingForSitter();
+        else
+        {
+            llSitTarget(<0.0, 0.0, 1.0>, ZERO_ROTATION);
+            llSetText("Fly Duo", <1,1,1>, 1);
+            key avatar = llAvatarOnSitTarget();
+            if (avatar != NULL_KEY)
+            {
+                llSetText("", ZERO_VECTOR, 0.0);
+            }
+            RefreshSitterCountFromLinks("state_entry");
+            UpdateWaitingForSitter();
+        }
         StartReadingNoteCard();
 
     }
@@ -465,6 +485,11 @@ default {
         if (change & CHANGED_INVENTORY)
         {
             llResetScript();
+        }
+
+        if (IsAutoRideMode())
+        {
+            return;
         }
 
         if (change & CHANGED_LINK)
@@ -517,6 +542,11 @@ default {
                 {
                     llOwnerSay("Reading " + file_name + " done " + (string)file_line_number + " lines.");
                     DumpKeyframeInfo("load");
+                    if (IsAutoRideMode())
+                    {
+                        StartMotion();
+                        return;
+                    }
                     key avatar = llAvatarOnSitTarget();
                     if (avatar != NULL_KEY)
                     {
@@ -540,6 +570,12 @@ default {
 
     timer()
     {
+        if (IsAutoRideMode())
+        {
+            StartMotion();
+            return;
+        }
+
         if (gPreRideActive)
         {
             llOwnerSay(DEBUG_PREFIX + "Pre-ride motion complete. Preparing to start main motion.");
@@ -577,6 +613,11 @@ default {
 
     link_message(integer sender, integer num, string msg, key id)
     {
+        if (IsAutoRideMode())
+        {
+            return;
+        }
+
         if (num == 90060)
         {
             TrackSitterJoined(id, "link_message 90060");
