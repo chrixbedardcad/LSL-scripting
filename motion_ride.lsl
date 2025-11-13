@@ -18,10 +18,21 @@ integer FLAG_WAIT_SITTER = TRUE;
 integer gWaitingForSitter = FALSE;
 integer REZZER_CHANNEL = -339189999;
 string DEBUG_PREFIX = "[motion_ride debug] ";
+integer DEBUG = TRUE;
 integer gTrackedSitterCount = 0;
 integer gHadAnySitters = FALSE;
 list gSitterIds = [];
 integer gRezzerNotified = FALSE;
+
+DebugSay(string message)
+{
+    if (!DEBUG)
+    {
+        return;
+    }
+
+    llOwnerSay(DEBUG_PREFIX + message);
+}
 
 integer IsAutoRideMode()
 {
@@ -78,7 +89,7 @@ DumpKeyframeInfo(string context)
     {
         lines += "... (" + (string)(count - 10) + " additional frames)";
     }
-    llOwnerSay(DEBUG_PREFIX + "Keyframe dump (" + context + "): frames=" + (string)count +
+    DebugSay("Keyframe dump (" + context + "): frames=" + (string)count +
         " totalTime=" + (string)gTotalPathTime + "\n" + lines);
 }
 
@@ -86,7 +97,7 @@ ReportCurrentTransform(string context)
 {
     vector pos = llGetPos();
     rotation rot = llGetRot();
-    llOwnerSay(DEBUG_PREFIX + context + " currentPos=" + (string)pos + " currentRot=" + (string)rot);
+    DebugSay(context + " currentPos=" + (string)pos + " currentRot=" + (string)rot);
 }
 
 LogSitterInfo(string context)
@@ -103,7 +114,7 @@ LogSitterInfo(string context)
         }
     }
     integer sitterCount = llGetListLength(names);
-    llOwnerSay(DEBUG_PREFIX + "Sitters (" + context + "): count=" + (string)sitterCount + " names=" + llList2CSV(names));
+    DebugSay("Sitters (" + context + "): count=" + (string)sitterCount + " names=" + llList2CSV(names));
 }
 
 integer IsSitterManagementEnabled()
@@ -123,13 +134,13 @@ UpdateWaitingForSitter()
     {
         gWaitingForSitter = TRUE;
         LogSitterInfo("waiting");
-        llOwnerSay(DEBUG_PREFIX + "Waiting for sitter (no avatar on sit target).");
+        DebugSay("Waiting for sitter (no avatar on sit target).");
     }
     else
     {
         gWaitingForSitter = FALSE;
         LogSitterInfo("ready");
-        llOwnerSay(DEBUG_PREFIX + "Not waiting for sitter (avatar present or waiting disabled).");
+        DebugSay("Not waiting for sitter (avatar present or waiting disabled).");
     }
 }
 
@@ -166,7 +177,7 @@ MaybeHandleAllSittersLeft(string context)
 
     if (gHadAnySitters && gTrackedSitterCount == 0)
     {
-        llOwnerSay(DEBUG_PREFIX + "All sitters have left (" + context + "). Deleting ride.");
+        DebugSay("All sitters have left (" + context + "). Deleting ride.");
         llDie();
     }
 }
@@ -367,13 +378,13 @@ StartMotion()
 {
     if (!gHasStartData || !llGetListLength(gKeyframeList))
     {
-        llOwnerSay(DEBUG_PREFIX + "StartMotion aborted: missing start data or empty keyframe list.");
+        DebugSay("StartMotion aborted: missing start data or empty keyframe list.");
         return;
     }
 
     gPreRideActive = FALSE;
     gWaitingForSitter = FALSE;
-    llOwnerSay(DEBUG_PREFIX + "Starting motion. Timer set for " + (string)(gTotalPathTime + PATH_RESET_BUFFER) + " seconds.");
+    DebugSay("Starting motion. Timer set for " + (string)(gTotalPathTime + PATH_RESET_BUFFER) + " seconds.");
     DumpKeyframeInfo("StartMotion");
     ReportCurrentTransform("StartMotion before reset");
     ResetToStart();
@@ -399,19 +410,19 @@ StartPreRide()
 
     if (gPreRideActive)
     {
-        llOwnerSay(DEBUG_PREFIX + "StartPreRide ignored: pre-ride already active.");
+        DebugSay("StartPreRide ignored: pre-ride already active.");
         return;
     }
 
     if (!gHasStartData || !llGetListLength(gKeyframeList))
     {
-        llOwnerSay(DEBUG_PREFIX + "StartPreRide fallback: missing data so starting motion directly.");
+        DebugSay("StartPreRide fallback: missing data so starting motion directly.");
         StartMotion();
         return;
     }
 
     gWaitingForSitter = FALSE;
-    llOwnerSay(DEBUG_PREFIX + "StartPreRide invoked. Executing simple forward motion.");
+    DebugSay("StartPreRide invoked. Executing simple forward motion.");
     llSetKeyframedMotion([], [KFM_COMMAND, KFM_CMD_STOP]);
     llSetKeyframedMotion([], []);
     llSetTimerEvent(0.0);
@@ -578,7 +589,7 @@ default {
 
         if (gPreRideActive)
         {
-            llOwnerSay(DEBUG_PREFIX + "Pre-ride motion complete. Preparing to start main motion.");
+            DebugSay("Pre-ride motion complete. Preparing to start main motion.");
             llSetKeyframedMotion([], [KFM_COMMAND, KFM_CMD_STOP]);
             llSetKeyframedMotion([], []);
             gPreRideActive = FALSE;
@@ -593,20 +604,20 @@ default {
         }
         if (!IsSitterManagementEnabled())
         {
-            llOwnerSay(DEBUG_PREFIX + "Timer fired with sitter management disabled. Continuing motion without sitter checks.");
+            DebugSay("Timer fired with sitter management disabled. Continuing motion without sitter checks.");
         }
         else if (FLAG_WAIT_SITTER && llAvatarOnSitTarget() == NULL_KEY)
         {
             if (!gWaitingForSitter)
             {
-                llOwnerSay(DEBUG_PREFIX + "Timer fired with no sitter. Resetting to start.");
+                DebugSay("Timer fired with no sitter. Resetting to start.");
                 ResetToStart();
             }
             gWaitingForSitter = TRUE;
             llSetTimerEvent(0.0);
             return;
         }
-        llOwnerSay(DEBUG_PREFIX + "Timer fired. Starting motion.");
+        DebugSay("Timer fired. Starting motion.");
         ReportCurrentTransform("Timer start");
         StartMotion();
     }
