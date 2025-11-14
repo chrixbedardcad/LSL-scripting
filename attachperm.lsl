@@ -33,13 +33,29 @@ configure_debug(integer enable, string reason)
 {
     if (enable == gDebugEnabled)
     {
-        string state = enable ? "enabled" : "disabled";
+        string state;
+        if (enable)
+        {
+            state = "enabled";
+        }
+        else
+        {
+            state = "disabled";
+        }
         llOwnerSay("[AttachPerm] Debug already " + state + " (" + reason + ")");
         return;
     }
 
     gDebugEnabled = enable;
-    string state = enable ? "enabled" : "disabled";
+    string state;
+    if (enable)
+    {
+        state = "enabled";
+    }
+    else
+    {
+        state = "disabled";
+    }
     llOwnerSay("[AttachPerm] Debug " + state + " (" + reason + ")");
 }
 
