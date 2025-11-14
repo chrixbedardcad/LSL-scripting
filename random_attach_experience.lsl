@@ -1,19 +1,19 @@
 // Random Attachment Experience Controller
 // Loads all object inventory items, listens for AVsitter link messages to obtain
-// the active avatar UUID, requests experience permissions, and cycles attachments
-// at a regular interval.
+// the active avatar UUID, and rezzes temporary attachments at a regular interval.
 
 integer DEBUG_LOG = TRUE;
 
 float   SWITCH_INTERVAL = 15.0;     // seconds between attachment swaps
 integer ATTACH_POINT    = ATTACH_CHEST;
+vector  REZ_OFFSET      = <0.0, 0.0, 1.0>;
 
 list    gObjects = [];
 key     gAvatar = NULL_KEY;
-key     gPendingAgent = NULL_KEY;
-integer gHasPerms = FALSE;
 string  gCurrentItem = "";
 integer gBaseLinkCount = 0;
+key     gActiveRez = NULL_KEY;
+integer gActiveChannel = 0;
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -96,18 +96,31 @@ refresh_inventory()
 
 detach_current()
 {
-    if (gCurrentItem != "")
+    if (gActiveRez != NULL_KEY && gActiveChannel != 0)
     {
-        llDetachFromAvatar();
-        log("Detached " + gCurrentItem);
-        gCurrentItem = "";
+        llRegionSayTo(gActiveRez, gActiveChannel, "DETACH");
+        log("Requested detach for " + gCurrentItem);
     }
+
+    gActiveRez = NULL_KEY;
+    gActiveChannel = 0;
+    gCurrentItem = "";
 }
 
-attach_random_item()
+integer random_channel()
 {
+    return 100000 + (integer)llFrand(900000.0);
+}
+
+rez_random_item()
+{
+    if (gAvatar == NULL_KEY)
+    {
+        return;
+    }
+
     integer count = llGetListLength(gObjects);
-    if (!gHasPerms || gAvatar == NULL_KEY || count == 0)
+    if (count == 0)
     {
         return;
     }
@@ -128,22 +141,35 @@ attach_random_item()
     }
 
     detach_current();
+
     gCurrentItem = choice;
-    llAttachToAvatarTemp(ATTACH_POINT);
-    log("Attached " + choice + " to avatar " + (string)gAvatar);
+    gActiveChannel = random_channel();
+    vector rezPos = llGetPos() + (REZ_OFFSET * llGetRot());
+    rotation rezRot = llGetRot();
+
+    log("Rezzing " + choice + " for avatar " + (string)gAvatar + " on channel " + (string)gActiveChannel);
+    llRezAtRoot(choice, rezPos, ZERO_VECTOR, rezRot, gActiveChannel);
 }
 
 start_cycle()
 {
-    if (!gHasPerms)
+    if (gAvatar == NULL_KEY)
     {
         return;
     }
 
-    attach_random_item();
+    if (gActiveRez == NULL_KEY)
+    {
+        rez_random_item();
+    }
+
     if (SWITCH_INTERVAL > 0.0)
     {
         llSetTimerEvent(SWITCH_INTERVAL);
+    }
+    else
+    {
+        llSetTimerEvent(0.0);
     }
 }
 
@@ -151,26 +177,7 @@ stop_cycle()
 {
     llSetTimerEvent(0.0);
     detach_current();
-    gHasPerms = FALSE;
     gAvatar = NULL_KEY;
-}
-
-request_permissions(key agent)
-{
-    if (agent == NULL_KEY)
-    {
-        return;
-    }
-
-    if (agent == gAvatar && gHasPerms)
-    {
-        start_cycle();
-        return;
-    }
-
-    log("Requesting experience permissions for " + (string)agent);
-    gPendingAgent = agent;
-    llRequestExperiencePermissions(agent, "Attachment control");
 }
 
 // --- State -------------------------------------------------------------------
@@ -182,6 +189,7 @@ default
         refresh_inventory();
         llSetTimerEvent(0.0);
         gBaseLinkCount = llGetNumberOfPrims();
+        detach_current();
     }
 
     changed(integer change)
@@ -208,9 +216,14 @@ default
         {
             if (id != NULL_KEY)
             {
+                if (gAvatar != id)
+                {
+                    detach_current();
+                }
+
                 gAvatar = id;
                 log("Sitter detected via link message " + (string)num + ": " + str);
-                request_permissions(gAvatar);
+                start_cycle();
             }
             return;
         }
@@ -218,8 +231,13 @@ default
         key agent = extract_avatar(num, str, id);
         if (agent != NULL_KEY)
         {
+            if (gAvatar != agent)
+            {
+                detach_current();
+            }
+
             gAvatar = agent;
-            request_permissions(agent);
+            start_cycle();
             return;
         }
 
@@ -230,32 +248,33 @@ default
         }
     }
 
-    experience_permissions(key agent)
-    {
-        if (agent != gPendingAgent)
-        {
-            return;
-        }
-
-        log("Permissions granted for " + (string)agent);
-        gAvatar = agent;
-        gHasPerms = TRUE;
-        start_cycle();
-    }
-
-    experience_permissions_denied(key agent, integer reason)
-    {
-        if (agent != gPendingAgent)
-        {
-            return;
-        }
-
-        log("Permissions denied for " + (string)agent + " reason " + (string)reason);
-        stop_cycle();
-    }
-
     timer()
     {
-        attach_random_item();
+        rez_random_item();
+    }
+
+    object_rez(key id)
+    {
+        if (id == NULL_KEY)
+        {
+            return;
+        }
+
+        gActiveRez = id;
+
+        if (gActiveChannel == 0)
+        {
+            return;
+        }
+
+        if (gAvatar == NULL_KEY)
+        {
+            detach_current();
+            return;
+        }
+
+        string message = "ATTACH|" + (string)gAvatar + "|" + (string)ATTACH_POINT;
+        llRegionSayTo(gActiveRez, gActiveChannel, message);
+        log("Sent attach command to rezzed object " + (string)gActiveRez);
     }
 }
