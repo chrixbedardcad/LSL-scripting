@@ -69,7 +69,7 @@ integer is_unsit_message(string str)
     return FALSE;
 }
 
-void log(string msg)
+log(string msg)
 {
     if (DEBUG_LOG)
     {
@@ -77,7 +77,7 @@ void log(string msg)
     }
 }
 
-void refresh_inventory()
+refresh_inventory()
 {
     gObjects = [];
     integer count = llGetInventoryNumber(INVENTORY_OBJECT);
@@ -94,7 +94,7 @@ void refresh_inventory()
     log("Inventory refreshed. Objects found: " + (string)llGetListLength(gObjects));
 }
 
-void detach_current()
+detach_current()
 {
     if (gCurrentItem != "")
     {
@@ -104,7 +104,7 @@ void detach_current()
     }
 }
 
-void attach_random_item()
+attach_random_item()
 {
     integer count = llGetListLength(gObjects);
     if (!gHasPerms || gAvatar == NULL_KEY || count == 0)
@@ -133,7 +133,7 @@ void attach_random_item()
     log("Attached " + choice + " to avatar " + (string)gAvatar);
 }
 
-void start_cycle()
+start_cycle()
 {
     if (!gHasPerms)
     {
@@ -147,7 +147,7 @@ void start_cycle()
     }
 }
 
-void stop_cycle()
+stop_cycle()
 {
     llSetTimerEvent(0.0);
     detach_current();
@@ -155,7 +155,7 @@ void stop_cycle()
     gAvatar = NULL_KEY;
 }
 
-void request_permissions(key agent)
+request_permissions(key agent)
 {
     if (agent == NULL_KEY)
     {
