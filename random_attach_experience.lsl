@@ -98,7 +98,7 @@ detach_current()
 {
     if (gCurrentItem != "")
     {
-        llDetachFromAvatarTemp(gCurrentItem);
+        llDetachFromAvatar();
         log("Detached " + gCurrentItem);
         gCurrentItem = "";
     }
@@ -129,7 +129,7 @@ attach_random_item()
 
     detach_current();
     gCurrentItem = choice;
-    llAttachToAvatarTemp(choice, ATTACH_POINT);
+    llAttachToAvatarTemp(ATTACH_POINT);
     log("Attached " + choice + " to avatar " + (string)gAvatar);
 }
 
