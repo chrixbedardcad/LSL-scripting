@@ -44,7 +44,23 @@ key extract_avatar(integer num, string str, key id)
 {
     if (id != NULL_KEY)
     {
-        return id;
+        string idString = (string)id;
+        if (is_valid_key(idString))
+        {
+            return (key)idString;
+        }
+
+        list idTokens = llParseString2List(idString, ["|", ",", ";", " ", "\n", "\t"], []);
+        integer idLen = llGetListLength(idTokens);
+        integer idx;
+        for (idx = 0; idx < idLen; ++idx)
+        {
+            string idToken = llList2String(idTokens, idx);
+            if (is_valid_key(idToken))
+            {
+                return (key)idToken;
+            }
+        }
     }
 
     if (is_valid_key(str))
