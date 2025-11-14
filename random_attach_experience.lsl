@@ -98,7 +98,9 @@ detach_current()
 {
     if (gCurrentItem != "")
     {
-        llDetachFromAvatarTemp();
+        // llDetachFromAvatarTemp() never existed; detach temporary attachments with
+        // the standard API instead.
+        llDetachFromAvatar();
         log("Detached " + gCurrentItem);
         gCurrentItem = "";
     }
