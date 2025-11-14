@@ -57,14 +57,15 @@ string build_payload_template()
     ]);
 }
 
-void debug_log(string message)
+integer debug_log(string message)
 {
     if (!gDebugEnabled)
     {
-        return;
+        return FALSE;
     }
 
     llOwnerSay(message);
+    return TRUE;
 }
 
 // --- Helpers ----------------------------------------------------------------
