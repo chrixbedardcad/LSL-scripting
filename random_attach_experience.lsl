@@ -204,6 +204,17 @@ default
 
     link_message(integer sender_num, integer num, string str, key id)
     {
+        if (num == 90060)
+        {
+            if (id != NULL_KEY)
+            {
+                gAvatar = id;
+                log("Sitter detected via link message " + (string)num + ": " + str);
+                request_permissions(gAvatar);
+            }
+            return;
+        }
+
         key agent = extract_avatar(num, str, id);
         if (agent != NULL_KEY)
         {
