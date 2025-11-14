@@ -21,6 +21,7 @@ string  gCurrentItem = "";
 integer gBaseLinkCount = 0;
 key     gActiveRez = NULL_KEY;
 integer gActiveChannel = 0;
+list    gSitters = [];
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -219,6 +220,72 @@ detach_current()
     gRezRequestTime = 0.0;
 }
 
+clear_all_sitters()
+{
+    if (llGetListLength(gSitters) > 0)
+    {
+        log("Clearing tracked sitters (" + (string)llGetListLength(gSitters) + " entries).");
+    }
+    gSitters = [];
+}
+
+register_sitter(key sitter)
+{
+    if (sitter == NULL_KEY)
+    {
+        return;
+    }
+
+    integer existing = llListFindList(gSitters, [sitter]);
+    if (existing != -1)
+    {
+        gSitters = llDeleteSubList(gSitters, existing, existing);
+    }
+    gSitters = [sitter] + gSitters;
+    log("Registered sitter " + (string)sitter + ". Active sitters: " + (string)llGetListLength(gSitters));
+
+    if (gAvatar != sitter)
+    {
+        if (gAvatar != NULL_KEY)
+        {
+            detach_current();
+        }
+        gAvatar = sitter;
+    }
+
+    start_cycle();
+}
+
+handle_sitter_departure(key sitter)
+{
+    if (sitter == NULL_KEY)
+    {
+        return;
+    }
+
+    integer existing = llListFindList(gSitters, [sitter]);
+    if (existing == -1)
+    {
+        log("Departure received for unknown sitter " + (string)sitter + ".");
+        return;
+    }
+
+    gSitters = llDeleteSubList(gSitters, existing, existing);
+    log("Sitter " + (string)sitter + " removed. Remaining sitters: " + (string)llGetListLength(gSitters));
+
+    if (gAvatar == sitter)
+    {
+        log("Active sitter stood up; stopping current cycle.");
+        stop_cycle();
+        if (llGetListLength(gSitters) > 0)
+        {
+            gAvatar = llList2Key(gSitters, 0);
+            log("Switching to next sitter " + (string)gAvatar + ".");
+            start_cycle();
+        }
+    }
+}
+
 integer random_channel()
 {
     return 100000 + (integer)llFrand(900000.0);
@@ -318,6 +385,7 @@ default
         refresh_inventory();
         llSetTimerEvent(0.0);
         gBaseLinkCount = llGetNumberOfPrims();
+        clear_all_sitters();
         detach_current();
         gPendingRez = FALSE;
         gRezRequestTime = 0.0;
@@ -340,6 +408,7 @@ default
             {
                 log("Link change detected; stopping cycle.");
                 stop_cycle();
+                clear_all_sitters();
             }
         }
         if (change & CHANGED_OWNER)
@@ -348,6 +417,7 @@ default
             gPendingRez = FALSE;
             gRezRequestTime = 0.0;
             detach_current();
+            clear_all_sitters();
             update_debug_listener();
             log("Owner changed; state reset.");
         }
@@ -358,17 +428,24 @@ default
         log("Link message received: sender=" + (string)sender_num + " num=" + (string)num + " id=" + (string)id + " msg='" + str + "'.");
         if (num == 90060)
         {
-            if (id != NULL_KEY)
+            key sitter = extract_avatar(num, str, id);
+            if (sitter != NULL_KEY)
             {
-                if (gAvatar != id)
-                {
-                    detach_current();
-                }
-
-                gAvatar = id;
                 log("Sitter detected via link message " + (string)num + ": " + str);
-                start_cycle();
+                register_sitter(sitter);
             }
+            return;
+        }
+
+        if (num == 90065)
+        {
+            key sitter = extract_avatar(num, str, id);
+            if (sitter == NULL_KEY)
+            {
+                sitter = gAvatar;
+            }
+            log("Stand detected via link message " + (string)num + ": " + str);
+            handle_sitter_departure(sitter);
             return;
         }
 
@@ -389,7 +466,16 @@ default
         if (gAvatar != NULL_KEY && is_unsit_message(str))
         {
             log("Unsit message received; stopping cycle.");
-            stop_cycle();
+            key sitter = extract_avatar(num, str, id);
+            if (sitter != NULL_KEY)
+            {
+                handle_sitter_departure(sitter);
+            }
+            else
+            {
+                stop_cycle();
+                clear_all_sitters();
+            }
         }
     }
 
