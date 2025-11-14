@@ -12,6 +12,7 @@ float   gRezRequestTime  = 0.0;
 float   PENDING_REZ_TIMEOUT = 10.0;
 
 float   SWITCH_INTERVAL = 15.0;     // seconds between attachment swaps
+float   MIN_REZ_INTERVAL = 1.5;     // throttle between rez attempts
 integer ATTACH_POINT    = ATTACH_CHEST;
 vector  REZ_OFFSET      = <0.0, 0.0, 1.0>;
 
@@ -22,6 +23,7 @@ integer gBaseLinkCount = 0;
 key     gActiveRez = NULL_KEY;
 integer gActiveChannel = 0;
 list    gSitters = [];
+float   gLastRezTime = 0.0;
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -41,44 +43,46 @@ integer is_valid_key(string value)
     return (string)possible == llToLower(value) || (string)possible == value;
 }
 
-key extract_avatar(integer num, string str, key id)
+key find_key_in_text(string value)
 {
-    if (id != NULL_KEY)
+    string trimmed = llStringTrim(value, STRING_TRIM);
+    if (trimmed == "" || trimmed == "NULL_KEY")
     {
-        string idString = (string)id;
-        if (is_valid_key(idString))
-        {
-            return (key)idString;
-        }
-
-        list idTokens = llParseString2List(idString, ["|", ",", ";", " ", "\n", "\t"], []);
-        integer idLen = llGetListLength(idTokens);
-        integer idx;
-        for (idx = 0; idx < idLen; ++idx)
-        {
-            string idToken = llList2String(idTokens, idx);
-            if (is_valid_key(idToken))
-            {
-                return (key)idToken;
-            }
-        }
+        return NULL_KEY;
     }
 
-    if (is_valid_key(str))
+    if (is_valid_key(trimmed))
     {
-        return (key)str;
+        return (key)llToLower(trimmed);
     }
 
-    list tokens = llParseString2List(str, ["|", ",", ";", " ", "\n", "\t"], []);
+    list tokens = llParseString2List(trimmed, ["|", ",", ";", " ", "\n", "\t"], []);
     integer len = llGetListLength(tokens);
     integer i;
     for (i = 0; i < len; ++i)
     {
-        string token = llList2String(tokens, i);
+        string token = llStringTrim(llList2String(tokens, i), STRING_TRIM);
         if (is_valid_key(token))
         {
-            return (key)token;
+            return (key)llToLower(token);
         }
+    }
+
+    return NULL_KEY;
+}
+
+key extract_avatar(integer num, string str, key id)
+{
+    key candidate = find_key_in_text((string)id);
+    if (candidate != NULL_KEY)
+    {
+        return candidate;
+    }
+
+    candidate = find_key_in_text(str);
+    if (candidate != NULL_KEY)
+    {
+        return candidate;
     }
 
     return NULL_KEY;
@@ -200,7 +204,7 @@ refresh_inventory()
     log("Inventory refreshed. Objects found: " + (string)llGetListLength(gObjects));
 }
 
-detach_current()
+detach_current(integer resetPending)
 {
     if (gCurrentItem != "")
     {
@@ -216,8 +220,13 @@ detach_current()
     gActiveRez = NULL_KEY;
     gActiveChannel = 0;
     gCurrentItem = "";
-    gPendingRez = FALSE;
-    gRezRequestTime = 0.0;
+
+    if (resetPending)
+    {
+        gPendingRez = FALSE;
+        gRezRequestTime = 0.0;
+        gLastRezTime = 0.0;
+    }
 }
 
 clear_all_sitters()
@@ -248,7 +257,7 @@ register_sitter(key sitter)
     {
         if (gAvatar != NULL_KEY)
         {
-            detach_current();
+            detach_current(TRUE);
         }
         gAvatar = sitter;
     }
@@ -305,6 +314,17 @@ rez_random_item()
         return;
     }
 
+    float now = llGetTime();
+    if (gLastRezTime > 0.0 && MIN_REZ_INTERVAL > 0.0)
+    {
+        float sinceLast = now - gLastRezTime;
+        if (sinceLast < MIN_REZ_INTERVAL)
+        {
+            log("Rez request throttled (" + (string)sinceLast + "s since last rez).");
+            return;
+        }
+    }
+
     integer count = llGetListLength(gObjects);
     if (count == 0)
     {
@@ -327,7 +347,7 @@ rez_random_item()
         } while (maxAttempts > 0 && choice == gCurrentItem);
     }
 
-    detach_current();
+    detach_current(FALSE);
 
     gCurrentItem = choice;
     gActiveChannel = random_channel();
@@ -337,7 +357,8 @@ rez_random_item()
     log("Rezzing " + choice + " for avatar " + (string)gAvatar + " on channel " + (string)gActiveChannel);
     llRezAtRoot(choice, rezPos, ZERO_VECTOR, rezRot, gActiveChannel);
     gPendingRez = TRUE;
-    gRezRequestTime = llGetTime();
+    gRezRequestTime = now;
+    gLastRezTime = now;
 }
 
 start_cycle()
@@ -372,7 +393,7 @@ stop_cycle()
     log("Stopping attachment cycle.");
     llSetTimerEvent(0.0);
     log("Timer disabled.");
-    detach_current();
+    detach_current(TRUE);
     gAvatar = NULL_KEY;
 }
 
@@ -386,9 +407,10 @@ default
         llSetTimerEvent(0.0);
         gBaseLinkCount = llGetNumberOfPrims();
         clear_all_sitters();
-        detach_current();
+        detach_current(TRUE);
         gPendingRez = FALSE;
         gRezRequestTime = 0.0;
+        gLastRezTime = 0.0;
         update_debug_listener();
         log("State entry complete. Base link count: " + (string)gBaseLinkCount);
     }
@@ -416,7 +438,7 @@ default
             gAvatar = NULL_KEY;
             gPendingRez = FALSE;
             gRezRequestTime = 0.0;
-            detach_current();
+            detach_current(TRUE);
             clear_all_sitters();
             update_debug_listener();
             log("Owner changed; state reset.");
@@ -454,7 +476,7 @@ default
         {
             if (gAvatar != agent)
             {
-                detach_current();
+                detach_current(TRUE);
             }
 
             gAvatar = agent;
@@ -495,6 +517,7 @@ default
                 gActiveChannel = 0;
                 gCurrentItem = "";
                 gRezRequestTime = 0.0;
+                gLastRezTime = 0.0;
             }
             else
             {
@@ -520,14 +543,14 @@ default
         if (gActiveChannel == 0)
         {
             log("No active channel present; detaching current item.");
-            detach_current();
+            detach_current(TRUE);
             return;
         }
 
         if (gAvatar == NULL_KEY)
         {
             log("No avatar active during rez; detaching.");
-            detach_current();
+            detach_current(TRUE);
             return;
         }
 
