@@ -100,7 +100,15 @@ configure_debug(integer enable, string reason)
     }
 
     gDebugEnabled = enable;
-    string state = enable ? "enabled" : "disabled";
+    string state;
+    if (enable)
+    {
+        state = "enabled";
+    }
+    else
+    {
+        state = "disabled";
+    }
     llOwnerSay("[RandomAttach] Debug " + state + " (" + reason + ")");
 }
 
