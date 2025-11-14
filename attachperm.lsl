@@ -33,30 +33,30 @@ configure_debug(integer enable, string reason)
 {
     if (enable == gDebugEnabled)
     {
-        string state;
+        string debugState;
         if (enable)
         {
-            state = "enabled";
+            debugState = "enabled";
         }
         else
         {
-            state = "disabled";
+            debugState = "disabled";
         }
-        llOwnerSay("[AttachPerm] Debug already " + state + " (" + reason + ")");
+        llOwnerSay("[AttachPerm] Debug already " + debugState + " (" + reason + ")");
         return;
     }
 
     gDebugEnabled = enable;
-    string state;
+    string debugState;
     if (enable)
     {
-        state = "enabled";
+        debugState = "enabled";
     }
     else
     {
-        state = "disabled";
+        debugState = "disabled";
     }
-    llOwnerSay("[AttachPerm] Debug " + state + " (" + reason + ")");
+    llOwnerSay("[AttachPerm] Debug " + debugState + " (" + reason + ")");
 }
 
 update_debug_listener()
