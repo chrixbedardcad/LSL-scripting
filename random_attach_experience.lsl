@@ -98,7 +98,7 @@ detach_current()
 {
     if (gCurrentItem != "")
     {
-        llDetachFromAvatarTemp(gCurrentItem);
+        llDetachFromAvatarTemp();
         log("Detached " + gCurrentItem);
         gCurrentItem = "";
     }
