@@ -39,6 +39,7 @@ integer gNextPositionIndex = -1; // Last index selected from gPositions
 vector  gHomeBasePos;       // Recorded base position for the rezzer
 integer gHomePosRecorded;   // TRUE when gHomeBasePos holds a valid value
 integer gTimerEnabled;      // TRUE when the automatic rez timer is active
+integer gDebugEnabled = TRUE; // Controls whether debug output is emitted
 
 float   TIMER_INTERVAL = 30.0; // Seconds between automatic rez attempts
 float   REZ_DELAY      = 0.4;  // Delay between rez attempts for organic dispersion
@@ -54,6 +55,16 @@ string build_payload_template()
         "OBJECT_NAME", "",
         "QTY",         "0"
     ]);
+}
+
+void debug_log(string message)
+{
+    if (!gDebugEnabled)
+    {
+        return;
+    }
+
+    llOwnerSay(message);
 }
 
 // --- Helpers ----------------------------------------------------------------
@@ -141,7 +152,7 @@ integer store_position_entry(string jsonLine)
 
     if (posStr == JSON_INVALID || rotStr == JSON_INVALID)
     {
-        llOwnerSay("caller.lsl: Invalid entry in '" + POS_NOTECARD + "': " + jsonLine);
+        debug_log("caller.lsl: Invalid entry in '" + POS_NOTECARD + "': " + jsonLine);
         return FALSE;
     }
 
@@ -150,7 +161,7 @@ integer store_position_entry(string jsonLine)
 
     if (posFormatted == "" || rotFormatted == "")
     {
-        llOwnerSay("caller.lsl: Empty vector value in '" + POS_NOTECARD + "': " + jsonLine);
+        debug_log("caller.lsl: Empty vector value in '" + POS_NOTECARD + "': " + jsonLine);
         return FALSE;
     }
 
@@ -218,7 +229,7 @@ integer begin_notecard_load(string notecard, integer phase)
 
     if (gLoadRequest == NULL_KEY)
     {
-        llOwnerSay("caller.lsl: Failed to request notecard '" + gCurrentNotecard + "'.");
+        debug_log("caller.lsl: Failed to request notecard '" + gCurrentNotecard + "'.");
         return FALSE;
     }
 
@@ -261,13 +272,13 @@ integer start_config_load()
 
     if (llGetInventoryType(CONFIG_NOTECARD) != INVENTORY_NOTECARD)
     {
-        llOwnerSay("caller.lsl: Unable to find configuration notecard '" + CONFIG_NOTECARD + "'.");
+        debug_log("caller.lsl: Unable to find configuration notecard '" + CONFIG_NOTECARD + "'.");
         return FALSE;
     }
 
     if (llGetInventoryType(POS_NOTECARD) != INVENTORY_NOTECARD)
     {
-        llOwnerSay("caller.lsl: Unable to find configuration notecard '" + POS_NOTECARD + "'.");
+        debug_log("caller.lsl: Unable to find configuration notecard '" + POS_NOTECARD + "'.");
         return FALSE;
     }
 
@@ -310,7 +321,7 @@ integer toggle_rez_timer()
 {
     if (!gReady && !gTimerEnabled)
     {
-        llOwnerSay("caller.lsl: Configuration not ready; cannot enable timer yet.");
+        debug_log("caller.lsl: Configuration not ready; cannot enable timer yet.");
         return FALSE;
     }
 
@@ -319,13 +330,13 @@ integer toggle_rez_timer()
     if (gTimerEnabled)
     {
         llSetTimerEvent(TIMER_INTERVAL);
-        llOwnerSay("caller.lsl: Automatic rez timer enabled.");
+        debug_log("caller.lsl: Automatic rez timer enabled.");
 
         if (!gSequenceActive && !gAwaitingAck)
         {
             if (!start_random_command())
             {
-                llOwnerSay("caller.lsl: Unable to start rez sequence immediately; will retry on timer.");
+                debug_log("caller.lsl: Unable to start rez sequence immediately; will retry on timer.");
             }
         }
     }
@@ -340,7 +351,7 @@ integer toggle_rez_timer()
         gSeqQty = 0;
         gSeqCompleted = 0;
         return_rezzer_home();
-        llOwnerSay("caller.lsl: Automatic rez timer disabled and rezzer reset.");
+        debug_log("caller.lsl: Automatic rez timer disabled and rezzer reset.");
     }
 
     return TRUE;
@@ -355,7 +366,7 @@ integer dispatch_next_rez()
 
     if (gSeqCompleted >= gSeqQty)
     {
-        llOwnerSay("caller.lsl: Completed rezzing " + (string)gSeqQty + " of '" + gSeqObjectName + "'.");
+        debug_log("caller.lsl: Completed rezzing " + (string)gSeqQty + " of '" + gSeqObjectName + "'.");
         gSequenceActive = FALSE;
         gActiveSequenceId = -1;
         return_rezzer_home();
@@ -366,7 +377,7 @@ integer dispatch_next_rez()
 
     if (totalPositions <= 0)
     {
-        llOwnerSay("caller.lsl: No positions available in '" + POS_NOTECARD + "'.");
+        debug_log("caller.lsl: No positions available in '" + POS_NOTECARD + "'.");
         gSequenceActive = FALSE;
         return FALSE;
     }
@@ -375,7 +386,7 @@ integer dispatch_next_rez()
 
     if (index < 0)
     {
-        llOwnerSay("caller.lsl: Unable to select a rez position.");
+        debug_log("caller.lsl: Unable to select a rez position.");
         gSequenceActive = FALSE;
         return FALSE;
     }
@@ -414,7 +425,7 @@ integer start_random_command()
 
     if (gSequenceActive || gAwaitingAck)
     {
-        llOwnerSay("caller.lsl: A rez sequence is already in progress.");
+        debug_log("caller.lsl: A rez sequence is already in progress.");
         return FALSE;
     }
 
@@ -426,7 +437,7 @@ integer start_random_command()
 
     if (objName == JSON_INVALID || objName == "")
     {
-        llOwnerSay("caller.lsl: Invalid Object_Name in configuration entry #" + (string)(index + 1));
+        debug_log("caller.lsl: Invalid Object_Name in configuration entry #" + (string)(index + 1));
         return FALSE;
     }
 
@@ -497,7 +508,7 @@ default
     {
         if (!gReady)
         {
-            llOwnerSay("caller.lsl: Configuration not ready yet.");
+            debug_log("caller.lsl: Configuration not ready yet.");
             return;
         }
 
@@ -522,7 +533,7 @@ default
 
         if (!gReady)
         {
-            llOwnerSay("caller.lsl: Configuration lost; disabling timer.");
+            debug_log("caller.lsl: Configuration lost; disabling timer.");
             gTimerEnabled = FALSE;
             llSetTimerEvent(0.0);
             return;
@@ -535,7 +546,7 @@ default
 
         if (!start_random_command())
         {
-            llOwnerSay("caller.lsl: Timer failed to start rez sequence; will retry.");
+            debug_log("caller.lsl: Timer failed to start rez sequence; will retry.");
         }
     }
 
@@ -582,7 +593,7 @@ default
         {
             gSequenceActive = FALSE;
             gActiveSequenceId = -1;
-            llOwnerSay("caller.lsl: Rezzer reported failure for '" + gSeqObjectName + "'.");
+            debug_log("caller.lsl: Rezzer reported failure for '" + gSeqObjectName + "'.");
             return_rezzer_home();
             return;
         }
@@ -632,7 +643,7 @@ default
             if (gLoadPhase == LOAD_PHASE_REZ)
             {
                 gEntriesReady = TRUE;
-                llOwnerSay("caller.lsl: Loaded " + (string)entry_count() + " configuration entries.");
+                debug_log("caller.lsl: Loaded " + (string)entry_count() + " configuration entries.");
 
                 if (!begin_notecard_load(POS_NOTECARD, LOAD_PHASE_POS))
                 {
@@ -645,13 +656,13 @@ default
             if (gLoadPhase == LOAD_PHASE_POS)
             {
                 gPositionsReady = TRUE;
-                llOwnerSay("caller.lsl: Loaded " + (string)position_count() + " positions.");
+                debug_log("caller.lsl: Loaded " + (string)position_count() + " positions.");
 
                 gReady = (gEntriesReady && gPositionsReady);
 
                 if (gReady)
                 {
-                    llOwnerSay("caller.lsl: Ready to rez objects.");
+                    debug_log("caller.lsl: Ready to rez objects.");
                 }
 
                 return;
@@ -662,10 +673,10 @@ default
 
         if (message == NOTE_NOT_FOUND)
         {
-            llOwnerSay("caller.lsl: Unable to read notecard '" + gCurrentNotecard + "'.");
+            debug_log("caller.lsl: Unable to read notecard '" + gCurrentNotecard + "'.");
             return;
         }
 
-        llOwnerSay("caller.lsl: Unexpected response while reading notecard '" + gCurrentNotecard + "'.");
+        debug_log("caller.lsl: Unexpected response while reading notecard '" + gCurrentNotecard + "'.");
     }
 }
