@@ -11,8 +11,8 @@ float   gRezRequestTime  = 0.0;
 
 float   PENDING_REZ_TIMEOUT = 10.0;
 
-float   SWITCH_INTERVAL = 15.0;     // seconds between attachment swaps
-float   MIN_REZ_INTERVAL = 1.5;     // throttle between rez attempts
+float   SWITCH_INTERVAL = 15.0;     // seconds before requesting a detach
+float   MIN_REZ_INTERVAL = 1.5;     // throttle between detach and the next rez
 vector  REZ_OFFSET      = <0.0, 0.0, 1.0>;
 
 string  gDetachMessage  = "";
@@ -25,6 +25,12 @@ key     gActiveRez = NULL_KEY;
 integer gActiveChannel = 0;
 list    gSitters = [];
 float   gLastRezTime = 0.0;
+
+integer ACTION_NONE   = 0;
+integer ACTION_REZ    = 1;
+integer ACTION_DETACH = 2;
+
+integer gNextAction = ACTION_NONE;
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -263,6 +269,7 @@ register_sitter(key sitter)
         if (gAvatar != NULL_KEY)
         {
             detach_current(TRUE);
+            cancel_scheduled_action();
         }
         gAvatar = sitter;
     }
@@ -305,6 +312,126 @@ integer random_channel()
     return 100000 + (integer)llFrand(900000.0);
 }
 
+string action_to_string(integer action)
+{
+    if (action == ACTION_REZ) return "rez";
+    if (action == ACTION_DETACH) return "detach";
+    return "none";
+}
+
+cancel_scheduled_action()
+{
+    if (gNextAction != ACTION_NONE)
+    {
+        log("Cancelling scheduled " + action_to_string(gNextAction) + " action.");
+    }
+    gNextAction = ACTION_NONE;
+    llSetTimerEvent(0.0);
+}
+
+schedule_action(integer action, float delay)
+{
+    gNextAction = action;
+    llSetTimerEvent(delay);
+    log("Scheduled " + action_to_string(action) + " action in " + (string)delay + " seconds.");
+}
+
+perform_action(integer action)
+{
+    if (action == ACTION_NONE)
+    {
+        log("No scheduled action to perform; ignoring timer event.");
+        return;
+    }
+
+    if (action == ACTION_DETACH)
+    {
+        if (gPendingRez)
+        {
+            float elapsed = llGetTime() - gRezRequestTime;
+            if (PENDING_REZ_TIMEOUT > 0.0 && elapsed < PENDING_REZ_TIMEOUT)
+            {
+                float remaining = PENDING_REZ_TIMEOUT - elapsed;
+                log("Detachment delayed while awaiting rez completion (" + (string)remaining + "s remaining).");
+                schedule_action(action, remaining);
+                return;
+            }
+
+            if (PENDING_REZ_TIMEOUT > 0.0 && elapsed >= PENDING_REZ_TIMEOUT)
+            {
+                log("Pending rez timed out before detach; resetting state.");
+                gPendingRez = FALSE;
+                gActiveRez = NULL_KEY;
+                gActiveChannel = 0;
+                gCurrentItem = "";
+                gRezRequestTime = 0.0;
+                gLastRezTime = 0.0;
+            }
+            else
+            {
+                log("Detachment delayed while rez is pending.");
+                schedule_action(action, 1.0);
+                return;
+            }
+        }
+
+        log("Detaching current item prior to next rez.");
+        detach_current(FALSE);
+
+        if (gAvatar != NULL_KEY)
+        {
+            if (MIN_REZ_INTERVAL > 0.0)
+            {
+                schedule_action(ACTION_REZ, MIN_REZ_INTERVAL);
+            }
+            else
+            {
+                perform_action(ACTION_REZ);
+            }
+        }
+        return;
+    }
+
+    if (action == ACTION_REZ)
+    {
+        if (gAvatar == NULL_KEY)
+        {
+            log("Rez action skipped because no avatar is active.");
+            return;
+        }
+
+        if (gPendingRez)
+        {
+            float elapsedRez = llGetTime() - gRezRequestTime;
+            log("Rez action skipped; previous rez still pending (" + (string)elapsedRez + "s elapsed).");
+            float retryDelay = MIN_REZ_INTERVAL;
+            if (retryDelay <= 0.0)
+            {
+                retryDelay = 1.0;
+            }
+            schedule_action(ACTION_REZ, retryDelay);
+            return;
+        }
+
+        if (gLastRezTime > 0.0 && MIN_REZ_INTERVAL > 0.0)
+        {
+            float sinceLast = llGetTime() - gLastRezTime;
+            if (sinceLast < MIN_REZ_INTERVAL)
+            {
+                float remainingDelay = MIN_REZ_INTERVAL - sinceLast;
+                log("Rez action deferred to respect throttle (" + (string)remainingDelay + "s remaining).");
+                schedule_action(ACTION_REZ, remainingDelay);
+                return;
+            }
+        }
+
+        rez_random_item();
+        return;
+    }
+
+    log("Unknown scheduled action " + (string)action + "; ignoring.");
+}
+
 rez_random_item()
 {
     if (gPendingRez)
@@ -320,15 +447,6 @@ rez_random_item()
     }
 
     float now = llGetTime();
-    if (gLastRezTime > 0.0 && MIN_REZ_INTERVAL > 0.0)
-    {
-        float sinceLast = now - gLastRezTime;
-        if (sinceLast < MIN_REZ_INTERVAL)
-        {
-            log("Rez request throttled (" + (string)sinceLast + "s since last rez).");
-            return;
-        }
-    }
 
     integer count = llGetListLength(gObjects);
     if (count == 0)
@@ -352,8 +470,6 @@ rez_random_item()
         } while (maxAttempts > 0 && choice == gCurrentItem);
     }
 
-    detach_current(FALSE);
-
     gCurrentItem = choice;
     gActiveChannel = random_channel();
     vector rezPos = llGetPos() + (REZ_OFFSET * llGetRot());
@@ -364,6 +480,15 @@ rez_random_item()
     gPendingRez = TRUE;
     gRezRequestTime = now;
     gLastRezTime = now;
+
+    if (SWITCH_INTERVAL > 0.0)
+    {
+        schedule_action(ACTION_DETACH, SWITCH_INTERVAL);
+    }
+    else
+    {
+        log("Switch interval non-positive; automatic detach scheduling disabled.");
+    }
 }
 
 start_cycle()
@@ -376,28 +501,31 @@ start_cycle()
 
     log("Starting attachment cycle for avatar " + (string)gAvatar + ".");
 
-    if (gActiveRez == NULL_KEY && !gPendingRez)
+    if (gPendingRez)
     {
-        rez_random_item();
+        log("Cycle already running; a rez request is pending.");
+        return;
     }
 
-    if (SWITCH_INTERVAL > 0.0)
+    if (gActiveRez != NULL_KEY)
     {
-        llSetTimerEvent(SWITCH_INTERVAL);
-        log("Timer scheduled with interval " + (string)SWITCH_INTERVAL + " seconds.");
+        log("Cycle already running; an attachment is currently active.");
+        return;
     }
-    else
+
+    if (gNextAction != ACTION_NONE)
     {
-        llSetTimerEvent(0.0);
-        log("Timer disabled because the switch interval is non-positive.");
+        log("Cycle already scheduled; next action is " + action_to_string(gNextAction) + ".");
+        return;
     }
+
+    perform_action(ACTION_REZ);
 }
 
 stop_cycle()
 {
     log("Stopping attachment cycle.");
-    llSetTimerEvent(0.0);
-    log("Timer disabled.");
+    cancel_scheduled_action();
     detach_current(TRUE);
     gAvatar = NULL_KEY;
 }
@@ -409,7 +537,7 @@ default
     state_entry()
     {
         refresh_inventory();
-        llSetTimerEvent(0.0);
+        cancel_scheduled_action();
         gBaseLinkCount = llGetNumberOfPrims();
         clear_all_sitters();
         detach_current(TRUE);
@@ -443,6 +571,7 @@ default
             gAvatar = NULL_KEY;
             gPendingRez = FALSE;
             gRezRequestTime = 0.0;
+            cancel_scheduled_action();
             detach_current(TRUE);
             clear_all_sitters();
             update_debug_listener();
@@ -482,6 +611,7 @@ default
             if (gAvatar != agent)
             {
                 detach_current(TRUE);
+                cancel_scheduled_action();
             }
 
             gAvatar = agent;
@@ -508,29 +638,11 @@ default
 
     timer()
     {
-        log("Timer event fired; attempting to rez next item.");
-
-        if (gPendingRez)
-        {
-            float elapsed = llGetTime() - gRezRequestTime;
-            log("Pending rez detected (" + (string)elapsed + "s elapsed).");
-            if (PENDING_REZ_TIMEOUT > 0.0 && elapsed >= PENDING_REZ_TIMEOUT)
-            {
-                log("Pending rez timed out; resetting state to allow another attempt.");
-                gPendingRez = FALSE;
-                gActiveRez = NULL_KEY;
-                gActiveChannel = 0;
-                gCurrentItem = "";
-                gRezRequestTime = 0.0;
-                gLastRezTime = 0.0;
-            }
-            else
-            {
-                return;
-            }
-        }
-
-        rez_random_item();
+        integer action = gNextAction;
+        gNextAction = ACTION_NONE;
+        llSetTimerEvent(0.0);
+        log("Timer event fired for scheduled " + action_to_string(action) + " action.");
+        perform_action(action);
     }
 
     object_rez(key id)
