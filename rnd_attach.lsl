@@ -13,8 +13,9 @@ float   PENDING_REZ_TIMEOUT = 10.0;
 
 float   SWITCH_INTERVAL = 15.0;     // seconds between attachment swaps
 float   MIN_REZ_INTERVAL = 1.5;     // throttle between rez attempts
-integer ATTACH_POINT    = ATTACH_CHEST;
 vector  REZ_OFFSET      = <0.0, 0.0, 1.0>;
+
+string  gDetachMessage  = "";
 
 list    gObjects = [];
 key     gAvatar = NULL_KEY;
@@ -213,7 +214,11 @@ detach_current(integer resetPending)
 
     if (gActiveRez != NULL_KEY && gActiveChannel != 0)
     {
-        llRegionSayTo(gActiveRez, gActiveChannel, "DETACH");
+        if (gDetachMessage == "")
+        {
+            gDetachMessage = llList2Json(JSON_OBJECT, ["DETACH", JSON_TRUE]);
+        }
+        llRegionSayTo(gActiveRez, gActiveChannel, gDetachMessage);
         log("Requested detach for " + gCurrentItem);
     }
 
@@ -554,9 +559,9 @@ default
             return;
         }
 
-        string message = "ATTACH|" + (string)gAvatar + "|" + (string)ATTACH_POINT;
+        string message = llList2Json(JSON_OBJECT, ["AVI_UUID", (string)gAvatar]);
         llRegionSayTo(gActiveRez, gActiveChannel, message);
-        log("Sent attach command to rezzed object " + (string)gActiveRez);
+        log("Sent attach request to rezzed object " + (string)gActiveRez);
     }
 
     listen(integer channel, string name, key id, string message)
